@@ -140,12 +140,14 @@ void save_audio(short* buffer, int bytes, HWND hwnd) {
     if(file == INVALID_HANDLE_VALUE) {
         MessageBox(hwnd, "Failed to create audio file.", "Error", MB_OK);
         ExitProcess(1);
-        return;
     }
 
     DWORD nbWritten;
     if(!WriteFile(file, (LPCVOID)buffer, (DWORD)bytes, &nbWritten, NULL)) {
         MessageBox(hwnd, "Failed to write audio file.", "Error", MB_OK);
+        CloseHandle(file);
         ExitProcess(1);
     }
+
+    CloseHandle(file);
 }
