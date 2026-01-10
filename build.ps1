@@ -35,6 +35,7 @@ Write-Host ""
 
 $sourceDir = 'src' # Source files directory
 $buildDir = 'obj' # Output directory of object files
+$cacheDir = 'cache' # Output directory for compilation cache
 $disasmDir = 'dis' # Output directory of disasembled files
 
 $infoColor = "Cyan"
@@ -71,6 +72,16 @@ function ItemNeedsUpdate($itemPath, $dependsPaths) {
     return $false
 }
 
+# Get path of target object file for a given source file
+function GetSrcObjPath($sourceFile) {
+    "$buildDir/$((Get-Item $sourceFile).BaseName).obj"
+}
+
+# Get path of file to store dependencies of an object file
+function GetObjDepPath($sourceFile) {
+    "$cacheDir/$((Get-Item $sourceFile).BaseName).d"
+}
+
 # Generate the minified shader source, since this operation can
 # take some time we only generate the file if it has been changed
 $shadersDir = "$sourceDir/shaders"
@@ -89,8 +100,7 @@ $compileOptions = @(
     '/c', # Compile without linking (generate object files only)
     '/O1', '/Os', '/Oi', # Basic optimization
     '/arch:IA32', # Force to use x87 float instructions
-    '/fp:fast', # Allow reordering of float operations
-    "/Fo$buildDir/" # Output directory
+    '/fp:fast' # Allow reordering of float operations
 )
 
 
@@ -119,53 +129,45 @@ if($Fullscreen) {
 $compileOptions += "/DXRES=$XRes"
 $compileOptions += "/DYRES=$YRes"
 
+# Get all source files
 $sourceFiles = Get-ChildItem -Path $sourceDir -Filter "*.c" -Recurse `
                 | ForEach-Object {$_.FullName}
 
+# Create build directory if not already
 if (-not (Test-Path -Path $buildDir)) {
     mkdir $buildDir | Out-Null
+}
+if (-not (Test-Path -Path $cacheDir)) {
+    mkdir $cacheDir | Out-Null
 }
 
 
 # Compile
 # Basic incremental build implementation
 
-function FindDependencies($fullFilePath) {
-    $paths = @{}
-    $ignore = @("glext.h", "khrplatform.h")
+function IsSubPath($parent, $child) {
+    $parentPath = (Resolve-Path -Path $parent).Path.TrimEnd('\', '/')
+    $childPath = (Resolve-Path -Path $child).Path.TrimEnd('\', '/')
 
-    function RecurseDependencies($fullFilePath) {
-        $parentPath = Split-Path $fullFilePath -Parent
-        $fileContent = Get-Content $fullFilePath
-        $includePattern = '^\s*#include\s+"([^"]+)"'
-
-        foreach ($line in $fileContent) {
-            if ($line -match $includePattern) {
-                $includedFilePath = $Matches[1]
-                $fullIncludePath = Resolve-Path "$parentPath/$includedFilePath"
-                $fullIncludePath = $fullIncludePath.ToString()
-
-                $includedFile = Split-Path $fullIncludePath -Leaf
-                if($includedFile -in $ignore) {
-                    continue
-                }
-                
-                if(-not $paths.ContainsKey($fullIncludePath)) {
-                    $paths[$fullIncludePath] = $true
-                    RecurseDependencies $fullIncludePath
-                }
-            }
-        }
-    }
-
-    RecurseDependencies $fullFilePath
-    $paths | Select-Object -ExpandProperty Keys
+    $childPath.StartsWith(
+        $parentPath + [IO.Path]::DirectorySeparatorChar,
+        [StringComparison]::OrdinalIgnoreCase) -or
+    ($childPath -eq $parentPath)
 }
+
+function GetDependenciesFromClOutput($clOutput) {
+    $clOutput | ForEach-Object {
+        if($_ -match '^\s*Note: including file:\s+(.*)$') { $Matches[1].Trim() }
+    } | Where-Object { $_ -and (Test-Path $_) -and (IsSubPath $src $_)} `
+      | Sort-Object -Unique
+}
+
 
 # Compile only the sources that have been modified except if
 # explicitly told to compile all or if compile options changed
 
-$prevOptsPath = "./build.tmp"
+# Check if any compile options have changed, recompile if changed
+$prevOptsPath = "$cacheDir/build.cache"
 if(-not $Recompile) {
     if(-not (Test-Path -Path $prevOptsPath)) {
         $Recompile = $true
@@ -175,30 +177,60 @@ if(-not $Recompile) {
         $Recompile = -not $null -eq $cmp
     }
 }
-if($Recompile) {
+if($Recompile) { # Save new compile options
     $compileOptions | Set-Content -Path $prevOptsPath
 }
 
+# Gather source files that needs to be recompiled
 $compileSources = @()
 if(-not $Recompile) {
+    # If not a full compilation, check for modified sources or dependencies
     foreach($source in $sourceFiles) {
-        $objPath = "$buildDir/$((Get-Item $source).BaseName).obj"
-        $depsPaths = @($source)
-        $depsPaths += FindDependencies (Resolve-Path $source)
+        $objPath = GetSrcObjPath $source
+        $depPath = GetObjDepPath $source
+        $depsPaths = @($source) # Paths of required sources for this object file
+        if(Test-Path $depPath) {
+            $depsPaths += Get-Content $depPath
+        } else { # No dependency cache yet
+            $compileSources += $source
+            continue
+        }
         if(ItemNeedsUpdate $objPath $depsPaths) {
+            # Compile if object file is older than any of its dependencies
             $compileSources += $source
         }
     }
 } else {
     $compileSources = $sourceFiles
 }
+$compileSources = $compileSources | Sort-Object -Unique
 
-if($compileSources.count -eq 0) {
-    Write-Host "Up to date. Nothing to compile." -ForegroundColor $infoColor
-} else {
+# Compile source files
+$hasCompiledFiles = ($compileSources.count -ne 0)
+if($hasCompiledFiles) {
     Write-Host "Compile options: $compileOptions"
-    Write-Host "Compiling" -ForegroundColor $infoColor
-    cl $compileOptions $compileSources
+
+    foreach($source in $compileSources) {
+        Write-Host "Compiling $source" -ForegroundColor $infoColor
+
+        $objPath = GetSrcObjPath $source
+        $depPath = GetObjDepPath $source
+
+        $clOutput = cl $compileOptions "/Fo$objPath" /showIncludes $source 2>&1
+        $code = $LASTEXITCODE
+
+        $srcDeps = GetDependenciesFromClOutput $clOutput
+        $srcDeps | Set-Content -Path $depPath
+
+        if($code -ne 0) {
+            Write-Error "Compilation failed for: $source"
+            $clOutput | Where-Object { $_ -and ($_ -notmatch '^\s*Note: including file:\s+') } |
+                ForEach-Object { Write-Host $_ }
+            return
+        }
+    }
+} else {
+    Write-Host "Up to date. Nothing to compile." -ForegroundColor $infoColor
 }
 
 $objectFiles = Get-ChildItem -Path $buildDir -Filter "*.obj" -Recurse `
@@ -236,10 +268,15 @@ if(-not $NoExe) {
 
     } else {
         Write-Host "Default linking" -ForegroundColor $infoColor
-        link /OUT:$outFile `
+        $linkOutput = link /OUT:$outFile `
             $objectFiles `
-            user32.lib gdi32.lib opengl32.lib Winmm.lib
-
+            user32.lib gdi32.lib opengl32.lib Winmm.lib 2>&1
+        $code = $LASTEXITCODE
+        if($code -ne 0) {
+            Write-Error "Linking failed."
+            $linkOutput | ForEach-Object { Write-Host $_ }
+            return
+        }
     }
 
     Write-Host "Output file: $outFile" -ForegroundColor $infoColor
@@ -253,7 +290,7 @@ if($Disasm) {
     Write-Host "Disassembling generated object files" -ForegroundColor $infoColor
     foreach($objectFile in $objectFiles) {
         $baseName = (Split-Path $objectFile -Leaf).Split('.')[0]
-        $outOption = "/OUT:./$disasmDir/$baseName.asm"
+        $outOption = "/OUT:$disasmDir/$baseName.asm"
         dumpbin /DISASM $objectFile $outOption | Out-Null
     }
 }

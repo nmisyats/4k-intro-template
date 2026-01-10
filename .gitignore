@@ -1,6 +1,7 @@
 .vscode
 obj
 dis
+cache
 *.exe
 *.tmp
 capture
