@@ -37,15 +37,19 @@ static frame_queue_t frameQueue;
 static HANDLE threads[NUM_THREADS];
 static DWORD threadIds[NUM_THREADS];
 
-static BOOL shouldTerminate = FALSE;
-
 
 DWORD WINAPI save_queued_frames();
 
-void init_capture(HWND hwnd) {
+void init_capture() {
     CreateDirectory("capture", NULL);
+}
 
-    #ifdef VIDEO
+void start_video_capture(HWND hwnd) {
+    stbi_flip_vertically_on_write(1);
+
+    glReadBuffer(GL_FRONT);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
     frameQueue.next = frameQueue.last = 0;
     frameQueue.freeSlotsSem = CreateSemaphore(NULL, QUEUE_SIZE, QUEUE_SIZE, NULL);
     frameQueue.fullSlotsSem = CreateSemaphore(NULL, 0, QUEUE_SIZE, NULL);
@@ -58,28 +62,19 @@ void init_capture(HWND hwnd) {
             ExitProcess(1);
         }
     }
-
-    stbi_flip_vertically_on_write(1);
-
-    glReadBuffer(GL_FRONT);
-    glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    #endif
 }
 
-void end_capture(HWND hwnd) {
-    #ifdef VIDEO
-    shouldTerminate = TRUE; // set termination flag
-    // since NUM_THREADS and QUEUE_SIZE could be different, we need to manually
-    // signal each thread and wait for it to end before signaling the next one
-    for(DWORD nbRunning = NUM_THREADS; nbRunning > 0; nbRunning--) {
+void end_video_capture(HWND hwnd) {
+    for(int i = 0; i < NUM_THREADS; i++) {
+        WaitForSingleObject(frameQueue.freeSlotsSem, INFINITE);
+
+        frame_t* frame = &frameQueue.frames[frameQueue.next];
+        frame->id = -1; // poison pill
+        frameQueue.next = (frameQueue.next + 1) % QUEUE_SIZE;
+
         ReleaseSemaphore(frameQueue.fullSlotsSem, 1, NULL);
-        DWORD index = WaitForMultipleObjects(nbRunning, threads, FALSE, INFINITE);
-        index -= WAIT_OBJECT_0;
-        HANDLE last = threads[nbRunning-1];
-        threads[nbRunning-1] = threads[index];
-        threads[index] = last;
     }
-    // WaitForMultipleObjects(NUM_THREADS, threads, TRUE, 1000);
+    WaitForMultipleObjects(NUM_THREADS, threads, TRUE, INFINITE);
 
     for(int i = 0; i < NUM_THREADS; i++) {
         CloseHandle(threads[i]);
@@ -88,7 +83,6 @@ void end_capture(HWND hwnd) {
     CloseHandle(frameQueue.freeSlotsSem);
     CloseHandle(frameQueue.fullSlotsSem);
     CloseHandle(frameQueue.mutex);
-    #endif
 }
 
 DWORD WINAPI save_queued_frames() {
@@ -96,10 +90,6 @@ DWORD WINAPI save_queued_frames() {
     char filename[32];
     while(1) {
         WaitForSingleObject(frameQueue.fullSlotsSem, INFINITE);
-        if(shouldTerminate) {
-            ReleaseSemaphore(frameQueue.fullSlotsSem, 1, NULL);
-            break;
-        }
 
         WaitForSingleObject(frameQueue.mutex, INFINITE);
         int frameIndex = frameQueue.last;
@@ -107,6 +97,10 @@ DWORD WINAPI save_queued_frames() {
         ReleaseMutex(frameQueue.mutex);
 
         frame_t* frame = &frameQueue.frames[frameIndex];
+        if(frame->id < 0) { // poison pill
+            ReleaseSemaphore(frameQueue.freeSlotsSem, 1, NULL);
+            break;
+        }
         wsprintf(filename, ".\\capture\\frame_%06d.png", frame->id);
         stbi_write_png(filename, XRES, YRES, 3, frame->pixels, 3*XRES);
 
@@ -127,7 +121,7 @@ void save_frame(int frameId) {
     ReleaseSemaphore(frameQueue.fullSlotsSem, 1, NULL);
 }
 
-void save_audio(short* buffer, int bytes, HWND hwnd) {
+void save_audio(short* buffer, DWORD bytes, HWND hwnd) {
     HANDLE file = CreateFile(
         ".\\capture\\audio.raw",
         GENERIC_WRITE,
@@ -143,7 +137,7 @@ void save_audio(short* buffer, int bytes, HWND hwnd) {
     }
 
     DWORD nbWritten;
-    if(!WriteFile(file, (LPCVOID)buffer, (DWORD)bytes, &nbWritten, NULL)) {
+    if(!WriteFile(file, (LPCVOID)buffer, bytes, &nbWritten, NULL)) {
         MessageBox(hwnd, "Failed to write audio file.", "Error", MB_OK);
         CloseHandle(file);
         ExitProcess(1);

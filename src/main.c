@@ -197,6 +197,7 @@ int WINAPI wWinMain(
         #endif
 
         #ifdef VIDEO
+        start_video_capture(hwnd);
         BOOL done = FALSE;
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)&done);
         MSG msg;
@@ -215,9 +216,8 @@ int WINAPI wWinMain(
 
             Sleep(1);
         }
+        end_video_capture(hwnd);
         #endif
-
-        end_capture(hwnd);
     #endif
 
     #ifdef FULLSCREEN
