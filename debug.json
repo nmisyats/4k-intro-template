@@ -1,5 +1,5 @@
 {
-    "DebugMode": true,
+    "DebugBuild": true,
     "Tiny": false,
     "Fullscreen": false,
     "Sound": true,
