@@ -158,7 +158,7 @@ function IsSubPath($parent, $child) {
 function GetDependenciesFromClOutput($clOutput) {
     $clOutput | ForEach-Object {
         if($_ -match '^\s*Note: including file:\s+(.*)$') { $Matches[1].Trim() }
-    } | Where-Object { $_ -and (Test-Path $_) -and (IsSubPath $src $_)} `
+    } | Where-Object { $_ -and (Test-Path $_) -and (IsSubPath $sourceDir $_)} `
       | Sort-Object -Unique
 }
 
