@@ -4,6 +4,8 @@ dis
 cache
 *.exe
 *.tmp
+*.pdb
+*.ilk
 capture
 *.mp4
 *.mp3

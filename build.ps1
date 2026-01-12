@@ -2,7 +2,7 @@ param (
     [string]$Config = ".\debug.json",
     [Parameter(DontShow)]
     $defaults = (Get-Content $Config | ConvertFrom-Json),
-    [switch]$DebugMode = $defaults.DebugMode,
+    [switch]$DebugBuild = $defaults.DebugBuild,
     [switch]$Tiny = $defaults.Tiny,
     [switch]$Sound = $defaults.Sound,
     [switch]$Fullscreen = $defaults.Fullscreen,
@@ -11,26 +11,19 @@ param (
     [string]$OutName = $defaults.OutName,
 
     [switch]$NoExe,
-    [switch]$Recompile,
+    [switch]$Clean,
     [switch]$Disasm,
     [switch]$SuffixWithRes,
     [int]$CrinklerTries = 0,
 
     [switch]$Capture,
-    [switch]$NoVideo
+    [switch]$VideoOnly,
+    [switch]$SoundOnly
 )
 
 if ($MyInvocation.BoundParameters['defaults']) {
     throw "The -defaults parameter is not allowed. Use -Config to specify the configuration file."
 }
-
-Write-Host "DebugMode:  $DebugMode"
-Write-Host "Tiny:       $Tiny"
-Write-Host "Sound:      $Sound"
-Write-Host "Fullscreen: $Fullscreen"
-Write-Host "XRes:       $XRes"
-Write-Host "YRes:       $YRes"
-Write-Host ""
 
 
 $sourceDir = 'src' # Source files directory
@@ -39,6 +32,27 @@ $cacheDir = 'cache' # Output directory for compilation cache
 $disasmDir = 'dis' # Output directory of disasembled files
 
 $infoColor = "Cyan"
+
+# Clean previous build files
+if ($Clean) {
+    Write-Host "Cleaning build files" -ForegroundColor $infoColor
+    Remove-Item .\*.exe, .\*.pdb, .\*.ilk
+    if (Test-Path $buildDir) {
+        Remove-Item $buildDir -Recurse
+    }
+    if (Test-Path $cacheDir) {
+        Remove-Item $cacheDir -Recurse
+    }
+    return
+}
+
+Write-Host "Debug:      $DebugBuild"
+Write-Host "Tiny:       $Tiny"
+Write-Host "Sound:      $Sound"
+Write-Host "Fullscreen: $Fullscreen"
+Write-Host "XRes:       $XRes"
+Write-Host "YRes:       $YRes"
+Write-Host ""
 
 # Check if MSVC build tools are accessible
 try {
@@ -98,36 +112,57 @@ if((ItemNeedsUpdate $shadersIncludeFile $shaderFiles) -or $Recompile) {
 # https://learn.microsoft.com/en-us/cpp/build/reference/compiler-options-listed-by-category?view=msvc-170
 $compileOptions = @(
     '/c', # Compile without linking (generate object files only)
-    '/O1', '/Os', '/Oi', # Basic optimization
     '/arch:IA32', # Force to use x87 float instructions
+    '/O1', '/Os', '/Oi' # Basic optimization
     '/fp:fast' # Allow reordering of float operations
 )
 
+# Option selection logic
+$HasVideo = $false
+$HasSound = $false
 
 if($Capture) {
+    # Capture build
     $compileOptions += '/DCAPTURE'
-    if($NoVideo) {
-        $Fullscreen = $false
-    } else {
-        $compileOptions += '/DVIDEO'
-        $Fullscreen = $true
+    if (-not ($VideoOnly -or $SoundOnly)) {
+        $HasVideo = $true
+        $HasSound = $true
+    } elseif ($VideoOnly) {
+        $HasVideo = $true
+    } elseif ($SoundOnly) {
+        $HasSound = $true
     }
-    $DebugMode = $true
+    $Tiny = $false
+    $DebugBuild = $false
+}
+elseif($DebugBuild) {
+    # Debug build
+    $compileOptions += '/DDEBUG'
+    $compileOptions += '/Zi'
+    $HasVideo = $true
+    $HasSound = $Sound
     $Tiny = $false
 }
-if($DebugMode) {
-    $compileOptions += '/DDEBUG'
-} else {
+else {
+    # Release build
     $compileOptions += '/GS-' # No buffer security check
+    $HasVideo = $true
+    $HasSound = $Sound
 }
-if($Sound) { 
+
+if($HasVideo) {
+    $compileOptions += '/DVIDEO'
+    if($Fullscreen) {
+        $compileOptions += '/DFULLSCREEN'
+    }
+}
+if ($HasSound) {
     $compileOptions += '/DSOUND'
 }
-if($Fullscreen) {
-    $compileOptions += '/DFULLSCREEN'
-}
+
 $compileOptions += "/DXRES=$XRes"
 $compileOptions += "/DYRES=$YRes"
+
 
 # Get all source files
 $sourceFiles = Get-ChildItem -Path $sourceDir -Filter "*.c" -Recurse `
@@ -168,6 +203,7 @@ function GetDependenciesFromClOutput($clOutput) {
 
 # Check if any compile options have changed, recompile if changed
 $prevOptsPath = "$cacheDir/build.cache"
+$Recompile = $Clean
 if(-not $Recompile) {
     if(-not (Test-Path -Path $prevOptsPath)) {
         $Recompile = $true
@@ -267,8 +303,12 @@ if(-not $NoExe) {
                 kernel32.lib user32.lib gdi32.lib opengl32.lib bufferoverflowu.lib Winmm.lib
 
     } else {
+        $linkOptions = @()
+        if ($DebugBuild) {
+            $linkOptions += "/DEBUG"
+        }
         Write-Host "Default linking" -ForegroundColor $infoColor
-        $linkOutput = link /OUT:$outFile `
+        $linkOutput = link /OUT:$outFile $linkOptions `
             $objectFiles `
             user32.lib gdi32.lib opengl32.lib Winmm.lib 2>&1
         $code = $LASTEXITCODE
