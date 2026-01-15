@@ -217,8 +217,6 @@ int WINAPI wWinMain(
             intro_do(time);
             capture_frame(i, hwnd);
             SwapBuffers(hdc);
-
-            Sleep(1);
         }
         finish_capture(hwnd);
         #endif
