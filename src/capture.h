@@ -2,8 +2,7 @@
 
 #include <windows.h>
 
-void init_capture();
-void start_video_capture(HWND hwnd);
-void end_video_capture(HWND hwnd);
-void save_frame(int frame);
+void start_capture(HWND hwnd);
+void finish_capture(HWND hwnd);
+void capture_frame(int frameId, HWND hwnd);
 void save_audio(short* buffer, DWORD bytes, HWND hwnd);

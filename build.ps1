@@ -48,11 +48,9 @@ if ($Clean) {
 
 Write-Host "Debug:      $DebugBuild"
 Write-Host "Tiny:       $Tiny"
-Write-Host "Sound:      $Sound"
 Write-Host "Fullscreen: $Fullscreen"
 Write-Host "XRes:       $XRes"
 Write-Host "YRes:       $YRes"
-Write-Host ""
 
 # Check if MSVC build tools are accessible
 try {
@@ -159,6 +157,9 @@ if($HasVideo) {
 if ($HasSound) {
     $compileOptions += '/DSOUND'
 }
+Write-Host "HasSound:   $HasSound"
+Write-Host "HasVideo:   $HasVideo"
+Write-Host ""
 
 $compileOptions += "/DXRES=$XRes"
 $compileOptions += "/DYRES=$YRes"

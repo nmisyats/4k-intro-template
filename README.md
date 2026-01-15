@@ -35,8 +35,6 @@ inline, rewrite or remove some of the code here in addition to writing your own.
 - `intro.h`/`intro.c`: rendering initialisation and update;
 - `synth.h`/`synth.c`: functions for the audio synthetizer;
 - `music.h`/`music.c`: music generation.
-- `stb_image_write.h`/`stb_image_write.c`: used to save frames to png,
-    taken from [stb](https://github.com/nothings/stb);
 - `capture.h`/`capture.c`: set of functions used for video capture
 
 ## Build
@@ -97,18 +95,5 @@ Build the intro with the `-Capture` flag, and run the generated executable:
 .\capture_main.exe
 ```
 
-Note that the capture executable is non-compressed and fullscreen debug mode.
-Once capture is complete, frames and audio are stored in the
-newly created `capture` folder.
-
-Generate the video file `capture.mp4` by calling:
-
-```powershell
-.\encode.ps1
-```
-
-To see encoding options enter:
-
-```powershell
-Get-Help .\encode.ps1
-```
+Note that the capture executable is non-compressed and non fullscreen debug mode by default.
+Once capture is complete, the video capture `capture.mp4` is generated.

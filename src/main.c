@@ -97,15 +97,22 @@ int WINAPI wWinMain(
         NULL
     );
     #else
+    RECT rect = { 0, 0, XRES, YRES };
+    DWORD style = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
+    AdjustWindowRect(&rect, style, FALSE);
+
+    int winW = rect.right - rect.left;
+    int winH = rect.bottom - rect.top;
+
     HWND hwnd = CreateWindow(
         CLASS_NAME, // the name of the window class to use for this window
         0, // the title of the window
         // set of flags to describe the look and feel of the window,
         // this is the default combination of flags that set a title bar, border,
         // menu, minimize and maximize buttons
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+        style,
         // xy-position, height and width of the window, set to default
-        0, 0, XRES, YRES,
+        0, 0, winW, winH,
         NULL, // parent window, NULL for a top level window
         NULL, // define a menu for the window, NULL for none
         hInstance, // the handle to this executable
@@ -187,8 +194,6 @@ int WINAPI wWinMain(
             Sleep(1); // let other processes some time (1ms)
         }
     #else
-        init_capture(hwnd);
-
         intro_init(hwnd);
         
         #ifdef SOUND
@@ -197,7 +202,7 @@ int WINAPI wWinMain(
         #endif
 
         #ifdef VIDEO
-        start_video_capture(hwnd);
+        start_capture(hwnd);
         BOOL done = FALSE;
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)&done);
         MSG msg;
@@ -210,13 +215,12 @@ int WINAPI wWinMain(
             GLfloat time = ((GLfloat)i / (GLfloat)CAPTURE_FRAMERATE);
 
             intro_do(time);
+            capture_frame(i, hwnd);
             SwapBuffers(hdc);
-
-            save_frame(i);
 
             Sleep(1);
         }
-        end_video_capture(hwnd);
+        finish_capture(hwnd);
         #endif
     #endif
 
