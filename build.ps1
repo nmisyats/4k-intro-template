@@ -132,6 +132,7 @@ if($Capture) {
     }
     $Tiny = $false
     $DebugBuild = $false
+    $Fullscreen = $false
 }
 elseif($DebugBuild) {
     # Debug build
@@ -304,11 +305,17 @@ if(-not $NoExe) {
                 kernel32.lib user32.lib gdi32.lib opengl32.lib bufferoverflowu.lib Winmm.lib
 
     } else {
+        Write-Host "Default linking" -ForegroundColor $infoColor
+
         $linkOptions = @()
         if ($DebugBuild) {
             $linkOptions += "/DEBUG"
         }
-        Write-Host "Default linking" -ForegroundColor $infoColor
+        if ($Capture) {
+            $linkOptions += "/SUBSYSTEM:CONSOLE"
+            $linkOptions += "/ENTRY:wWinMainCRTStartup"
+        }
+        
         $linkOutput = link /OUT:$outFile $linkOptions `
             $objectFiles `
             user32.lib gdi32.lib opengl32.lib Winmm.lib 2>&1

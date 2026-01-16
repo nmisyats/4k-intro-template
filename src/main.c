@@ -76,7 +76,7 @@ int WINAPI wWinMain(
     const LPCSTR CLASS_NAME = "static";
     #endif
 
-    #ifdef FULLSCREEN
+    #if defined(FULLSCREEN)
     // Change display settings to fullscreen
     EnumDisplaySettings(NULL, 0, &displaySettings);
     displaySettings.dmPelsWidth  = XRES;
@@ -96,11 +96,22 @@ int WINAPI wWinMain(
         NULL, NULL, hInstance,
         NULL
     );
+    #elif defined(CAPTURE)
+    // In capture mode, the window is only required for the GL context
+    // Frames are rendered in a framebuffer and the window remains hidden
+    HWND hwnd = CreateWindow(
+        CLASS_NAME,
+        0,
+        WS_POPUP,
+        0, 0, 1, 1, // 1x1 window
+        NULL, NULL, hInstance,
+        NULL
+    );
     #else
+    // In windowed mode, ensure the resolution applies to the client area
     RECT rect = { 0, 0, XRES, YRES };
     DWORD style = WS_OVERLAPPEDWINDOW | WS_VISIBLE;
     AdjustWindowRect(&rect, style, FALSE);
-
     int winW = rect.right - rect.left;
     int winH = rect.bottom - rect.top;
 
@@ -202,21 +213,23 @@ int WINAPI wWinMain(
         #endif
 
         #ifdef VIDEO
-        start_capture(hwnd);
-        BOOL done = FALSE;
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)&done);
-        MSG msg;
-        for(int i = 0; i < INTRO_DURATION*CAPTURE_FRAMERATE && !done; i++) {
-            while(PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE)){
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
+        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        char consoleMsg[256];
+        DWORD nbWritten;
 
+        start_capture(hwnd);
+        for(int i = 0; i < INTRO_DURATION*CAPTURE_FRAMERATE; i++) {
             GLfloat time = ((GLfloat)i / (GLfloat)CAPTURE_FRAMERATE);
 
             intro_do(time);
             capture_frame(hwnd);
-            SwapBuffers(hdc);
+
+            if(i % CAPTURE_FRAMERATE == 0) {
+                wsprintf(consoleMsg,
+                    "Recorded frames %d/%d\r\n",
+                    i, INTRO_DURATION*CAPTURE_FRAMERATE);
+                WriteConsole(hConsole, consoleMsg, lstrlen(consoleMsg), &nbWritten, NULL);
+            }
         }
         finish_capture(hwnd);
         #endif

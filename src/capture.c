@@ -6,7 +6,15 @@
 #define FRAME_SIZE 3*XRES*YRES
 
 
-static GLubyte frameBuffer[FRAME_SIZE];
+#define glGenFramebuffers ((PFNGLGENFRAMEBUFFERSPROC)wglGetProcAddress("glGenFramebuffers"))
+#define glBindFramebuffer ((PFNGLBINDFRAMEBUFFERPROC)wglGetProcAddress("glBindFramebuffer"))
+#define glFramebufferTexture2D ((PFNGLFRAMEBUFFERTEXTURE2DPROC)wglGetProcAddress("glFramebufferTexture2D"))
+#define glCheckFramebufferStatus ((PFNGLCHECKFRAMEBUFFERSTATUSPROC)wglGetProcAddress("glCheckFramebufferStatus"))
+
+
+static GLubyte frame[FRAME_SIZE];
+static GLuint fboTexture;
+static GLuint fbo;
 
 static HANDLE ffmpegStdinWrite;
 static PROCESS_INFORMATION ffmpegPi;
@@ -79,14 +87,31 @@ void start_capture(HWND hwnd) {
 
     CloseHandle(stdinRead);
 
-    glReadBuffer(GL_BACK);
+    // Create texture to render into
+    glGenTextures(1, &fboTexture);
+    glBindTexture(GL_TEXTURE_2D, fboTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, XRES, YRES, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+
+    // Create FBO
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fboTexture, 0);
+
+    // Check FBO is complete
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        MessageBox(hwnd, "FBO creation failed.", "Error", MB_OK);
+        ExitProcess(1);
+    }
+
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glViewport(0, 0, XRES, YRES);
 }
 
 void capture_frame(HWND hwnd) {
-    glReadPixels(0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, frameBuffer);
+    glReadPixels(0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, frame);
     
-    if (!write_all(ffmpegStdinWrite, frameBuffer, FRAME_SIZE)) {
+    if (!write_all(ffmpegStdinWrite, frame, FRAME_SIZE)) {
         MessageBox(hwnd, "Failed to pipe frame to ffmpeg.", "Error", MB_OK);
         ExitProcess(1);
     }
