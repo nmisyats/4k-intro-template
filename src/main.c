@@ -215,7 +215,7 @@ int WINAPI wWinMain(
             GLfloat time = ((GLfloat)i / (GLfloat)CAPTURE_FRAMERATE);
 
             intro_do(time);
-            capture_frame(i, hwnd);
+            capture_frame(hwnd);
             SwapBuffers(hdc);
         }
         finish_capture(hwnd);
