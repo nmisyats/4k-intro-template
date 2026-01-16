@@ -46,12 +46,6 @@ if ($Clean) {
     return
 }
 
-Write-Host "Debug:      $DebugBuild"
-Write-Host "Tiny:       $Tiny"
-Write-Host "Fullscreen: $Fullscreen"
-Write-Host "XRes:       $XRes"
-Write-Host "YRes:       $YRes"
-
 # Check if MSVC build tools are accessible
 try {
     Get-Command "cl" -ErrorAction Stop | Out-Null
@@ -67,6 +61,42 @@ try {
     Write-Error "shader_minifier.exe not found."
     return
 }
+
+# Option selection logic
+$HasVideo = $false
+$HasSound = $false
+if($Capture) { # Capture build
+    if (-not ($VideoOnly -or $SoundOnly)) {
+        $HasVideo = $true
+        $HasSound = $true
+    } elseif ($VideoOnly) {
+        $HasVideo = $true
+    } elseif ($SoundOnly) {
+        $HasSound = $true
+    }
+    $Tiny = $false
+    $DebugBuild = $false
+    $Fullscreen = $false
+}
+elseif($DebugBuild) { # Debug build
+    $HasVideo = $true
+    $HasSound = $Sound
+    $Tiny = $false
+}
+else { # Release build
+    $HasVideo = $true
+    $HasSound = $Sound
+}
+
+# Print option summary
+Write-Host "Debug:      $DebugBuild"
+Write-Host "Tiny:       $Tiny"
+Write-Host "Fullscreen: $Fullscreen"
+Write-Host "XRes:       $XRes"
+Write-Host "YRes:       $YRes"
+Write-Host "HasSound:   $HasSound"
+Write-Host "HasVideo:   $HasVideo"
+Write-Host ""
 
 # Utility functions to test if a given file needs to be updated based
 # on its dependencies last update
@@ -111,57 +141,31 @@ if((ItemNeedsUpdate $shadersIncludeFile $shaderFiles) -or $Recompile) {
 $compileOptions = @(
     '/c', # Compile without linking (generate object files only)
     '/arch:IA32', # Force to use x87 float instructions
-    '/O1', '/Os', '/Oi' # Basic optimization
+    '/O1', # Optimize for small code
+    '/Os', # Favor small code
+    '/Oi', # Replace function calls with intrinsic when possible
     '/fp:fast' # Allow reordering of float operations
 )
 
-# Option selection logic
-$HasVideo = $false
-$HasSound = $false
-
 if($Capture) {
-    # Capture build
     $compileOptions += '/DCAPTURE'
-    if (-not ($VideoOnly -or $SoundOnly)) {
-        $HasVideo = $true
-        $HasSound = $true
-    } elseif ($VideoOnly) {
-        $HasVideo = $true
-    } elseif ($SoundOnly) {
-        $HasSound = $true
-    }
-    $Tiny = $false
-    $DebugBuild = $false
-    $Fullscreen = $false
 }
 elseif($DebugBuild) {
-    # Debug build
     $compileOptions += '/DDEBUG'
-    $compileOptions += '/Zi'
-    $HasVideo = $true
-    $HasSound = $Sound
-    $Tiny = $false
+    $compileOptions += '/Zi' # Generate debugging information
 }
-else {
-    # Release build
+else { # Release
     $compileOptions += '/GS-' # No buffer security check
-    $HasVideo = $true
-    $HasSound = $Sound
 }
-
 if($HasVideo) {
     $compileOptions += '/DVIDEO'
-    if($Fullscreen) {
-        $compileOptions += '/DFULLSCREEN'
-    }
 }
 if ($HasSound) {
     $compileOptions += '/DSOUND'
 }
-Write-Host "HasSound:   $HasSound"
-Write-Host "HasVideo:   $HasVideo"
-Write-Host ""
-
+if($Fullscreen) {
+    $compileOptions += '/DFULLSCREEN'
+}
 $compileOptions += "/DXRES=$XRes"
 $compileOptions += "/DYRES=$YRes"
 
