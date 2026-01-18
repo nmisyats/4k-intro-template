@@ -78,6 +78,11 @@ if($Capture) { # Capture build
     $DebugBuild = $false
     $Fullscreen = $false
 }
+elseif($Tiny) { # Tiny build (uses crinkler)
+    $DebugBuild = $false
+    $HasVideo = $true
+    $HasSound = $Sound
+}
 elseif($DebugBuild) { # Debug build
     $HasVideo = $true
     $HasSound = $Sound
@@ -131,7 +136,7 @@ $shadersIncludeFile = "$sourceDir/shaders.inl"
 $shaderFiles = Get-ChildItem -Path $shadersDir -Recurse `
                 | Where-Object{$_.Extension -match '^.(frag|vert|glsl)$'} `
                 | ForEach-Object {$_.FullName}
-if((ItemNeedsUpdate $shadersIncludeFile $shaderFiles) -or $Recompile) {
+if((ItemNeedsUpdate $shadersIncludeFile $shaderFiles)) {
     Write-Host "Minifying shaders..." -ForegroundColor $infoColor
     shader_minifier $shaderFiles -o $shadersIncludeFile
 }
@@ -204,8 +209,8 @@ function GetDependenciesFromClOutput($clOutput) {
 }
 
 
-# Compile only the sources that have been modified except if
-# explicitly told to compile all or if compile options changed
+# Compile only the sources that have been modified except if compile
+# options changed
 
 # Check if any compile options have changed, recompile if changed
 $prevOptsPath = "$cacheDir/build.cache"
@@ -308,6 +313,10 @@ if(-not $NoExe) {
                 $objectFiles `
                 kernel32.lib user32.lib gdi32.lib opengl32.lib bufferoverflowu.lib Winmm.lib
 
+        if($LASTEXITCODE -ne 0) {
+            Write-Error "Linking failed."
+            return
+        }
     } else {
         Write-Host "Default linking" -ForegroundColor $infoColor
 
@@ -323,8 +332,8 @@ if(-not $NoExe) {
         $linkOutput = link /OUT:$outFile $linkOptions `
             $objectFiles `
             user32.lib gdi32.lib opengl32.lib Winmm.lib 2>&1
-        $code = $LASTEXITCODE
-        if($code -ne 0) {
+        
+        if($LASTEXITCODE -ne 0) {
             Write-Error "Linking failed."
             $linkOutput | ForEach-Object { Write-Host $_ }
             return
@@ -342,7 +351,10 @@ if($Disasm) {
     Write-Host "Disassembling generated object files" -ForegroundColor $infoColor
     foreach($objectFile in $objectFiles) {
         $baseName = (Split-Path $objectFile -Leaf).Split('.')[0]
-        $outOption = "/OUT:$disasmDir/$baseName.asm"
-        dumpbin /DISASM $objectFile $outOption | Out-Null
+        $dumpbinOptions = @(
+            "/OUT:$disasmDir/$baseName.asm",
+            "/DISASM"
+        )
+        dumpbin $dumpbinOptions $objectFile | Out-Null
     }
 }
