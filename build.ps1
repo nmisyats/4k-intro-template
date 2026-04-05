@@ -30,6 +30,8 @@ $sourceDir = 'src' # Source files directory
 $buildDir = 'obj' # Output directory of object files
 $cacheDir = 'cache' # Output directory for compilation cache
 $disasmDir = 'dis' # Output directory of disasembled files
+$shadersDir = "$sourceDir/shaders"
+$shadersIncludeFile = "$sourceDir/shaders.inl"
 
 $infoColor = "Cyan"
 
@@ -42,6 +44,9 @@ if ($Clean) {
     }
     if (Test-Path $cacheDir) {
         Remove-Item $cacheDir -Recurse
+    }
+    if (Test-Path $shadersIncludeFile) {
+        Remove-Item $shadersIncludeFile
     }
     return
 }
@@ -131,8 +136,6 @@ function GetObjDepPath($sourceFile) {
 
 # Generate the minified shader source, since this operation can
 # take some time we only generate the file if it has been changed
-$shadersDir = "$sourceDir/shaders"
-$shadersIncludeFile = "$sourceDir/shaders.inl"
 $shaderFiles = Get-ChildItem -Path $shadersDir -Recurse `
                 | Where-Object{$_.Extension -match '^.(frag|vert|glsl|comp)$'} `
                 | ForEach-Object {$_.FullName}
