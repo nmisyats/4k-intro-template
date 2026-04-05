@@ -134,11 +134,14 @@ function GetObjDepPath($sourceFile) {
 $shadersDir = "$sourceDir/shaders"
 $shadersIncludeFile = "$sourceDir/shaders.inl"
 $shaderFiles = Get-ChildItem -Path $shadersDir -Recurse `
-                | Where-Object{$_.Extension -match '^.(frag|vert|glsl)$'} `
+                | Where-Object{$_.Extension -match '^.(frag|vert|glsl|comp)$'} `
                 | ForEach-Object {$_.FullName}
 if((ItemNeedsUpdate $shadersIncludeFile $shaderFiles)) {
     Write-Host "Minifying shaders..." -ForegroundColor $infoColor
     shader_minifier $shaderFiles -o $shadersIncludeFile
+    if($LASTEXITCODE -ne 0) {
+        return;
+    }
 }
 
 # Available options:
