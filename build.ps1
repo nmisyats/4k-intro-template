@@ -27,8 +27,7 @@ if ($MyInvocation.BoundParameters['defaults']) {
 
 
 $sourceDir = 'src' # Source files directory
-$buildDir = 'obj' # Output directory of object files
-$cacheDir = 'cache' # Output directory for compilation cache
+$buildDir = 'build' # Output directory for build files
 $disasmDir = 'dis' # Output directory of disasembled files
 $shadersDir = "$sourceDir/shaders"
 $shadersIncludeFile = "$sourceDir/shaders.inl"
@@ -41,9 +40,6 @@ if ($Clean) {
     Remove-Item .\*.exe, .\*.pdb, .\*.ilk
     if (Test-Path $buildDir) {
         Remove-Item $buildDir -Recurse
-    }
-    if (Test-Path $cacheDir) {
-        Remove-Item $cacheDir -Recurse
     }
     if (Test-Path $shadersIncludeFile) {
         Remove-Item $shadersIncludeFile
@@ -131,7 +127,7 @@ function GetSrcObjPath($sourceFile) {
 
 # Get path of file to store dependencies of an object file
 function GetObjDepPath($sourceFile) {
-    "$cacheDir/$((Get-Item $sourceFile).BaseName).d"
+    "$buildDir/$((Get-Item $sourceFile).BaseName).d"
 }
 
 # Generate the minified shader source, since this operation can
@@ -189,9 +185,6 @@ $sourceFiles = Get-ChildItem -Path $sourceDir -Filter "*.c" -Recurse `
 if (-not (Test-Path -Path $buildDir)) {
     mkdir $buildDir | Out-Null
 }
-if (-not (Test-Path -Path $cacheDir)) {
-    mkdir $cacheDir | Out-Null
-}
 
 
 # Compile
@@ -219,7 +212,7 @@ function GetDependenciesFromClOutput($clOutput) {
 # options changed
 
 # Check if any compile options have changed, recompile if changed
-$prevOptsPath = "$cacheDir/cl.txt"
+$prevOptsPath = "$buildDir/cl.txt"
 $Recompile = $Clean
 if(-not $Recompile) {
     if(-not (Test-Path -Path $prevOptsPath)) {

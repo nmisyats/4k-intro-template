@@ -1,7 +1,6 @@
 .vscode
-obj
+build
 dis
-cache
 *.exe
 *.tmp
 *.pdb
