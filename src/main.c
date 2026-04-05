@@ -60,6 +60,7 @@ int WINAPI wWinMain(
     PWSTR pCmdLine, // command line arguments as Unicode string
     int nCmdShow // flag indicating if the current app's window is minimized, maximised or shown normally
 ) {
+    SetProcessDPIAware();
 
     #ifdef DEBUG
     // Register the window class
