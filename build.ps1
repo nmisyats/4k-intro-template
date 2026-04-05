@@ -219,7 +219,7 @@ function GetDependenciesFromClOutput($clOutput) {
 # options changed
 
 # Check if any compile options have changed, recompile if changed
-$prevOptsPath = "$cacheDir/build.cache"
+$prevOptsPath = "$cacheDir/cl.txt"
 $Recompile = $Clean
 if(-not $Recompile) {
     if(-not (Test-Path -Path $prevOptsPath)) {
