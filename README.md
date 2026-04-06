@@ -95,5 +95,5 @@ Build the intro with the `-Capture` flag, and run the generated executable:
 .\capture_main.exe
 ```
 
-Note that the capture executable is non-compressed and non fullscreen debug mode by default.
+Note that the capture executable is non-compressed.
 Once capture is complete, the video capture `capture.mp4` is generated.
