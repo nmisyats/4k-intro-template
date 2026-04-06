@@ -31,7 +31,7 @@ $sourceDir = 'src' # Source files directory
 $buildDir = 'obj' # Output directory for build files
 $disasmDir = 'dis' # Output directory of disasembled files
 $shadersDir = "$sourceDir/shaders"
-$shadersIncludeFile = "$sourceDir/shaders.inl"
+$shadersSourceFile = "$sourceDir/shaders.c"
 
 $infoColor = "Cyan"
 
@@ -42,8 +42,8 @@ if ($Clean) {
     if (Test-Path $buildDir) {
         Remove-Item $buildDir -Recurse
     }
-    if (Test-Path $shadersIncludeFile) {
-        Remove-Item $shadersIncludeFile
+    if (Test-Path $shadersSourceFile) {
+        Remove-Item $shadersSourceFile
     }
     return
 }
@@ -139,10 +139,10 @@ if($MinifyShaders) {
     $shaderFiles = Get-ChildItem -Path $shadersDir -Recurse `
                     | Where-Object{$_.Extension -match '^.(frag|vert|glsl|comp)$'} `
                     | ForEach-Object {$_.FullName}
-    if((ItemNeedsUpdate $shadersIncludeFile $shaderFiles)) {
+    if((ItemNeedsUpdate $shadersSourceFile $shaderFiles)) {
         if($MinifyShaders) {
             Write-Host "Minifying shaders..." -ForegroundColor $infoColor
-            shader_minifier $shaderFiles -o $shadersIncludeFile
+            shader_minifier $shaderFiles -o $shadersSourceFile
             if($LASTEXITCODE -ne 0) {
                 return;
             }

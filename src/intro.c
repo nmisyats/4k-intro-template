@@ -3,17 +3,17 @@
 #include "glext.h" // contains type definitions for all modern OpenGL functions
 #include "config.h"
 #include "utils.h"
-
-#ifdef MINIFIED_SHADERS
-#include "shaders.inl"
-#endif
-
+#include "music.h"
 
 // Define the modern OpenGL functions to load from the driver
 
 #define glCreateShaderProgramv ((PFNGLCREATESHADERPROGRAMVPROC)wglGetProcAddress("glCreateShaderProgramv"))
 #define glUseProgram ((PFNGLUSEPROGRAMPROC)wglGetProcAddress("glUseProgram"))
-#define glProgramUniform4fv ((PFNGLPROGRAMUNIFORM4FVPROC)wglGetProcAddress("glProgramUniform4fv"))
+#define glUniform4fv ((PFNGLUNIFORM4FVPROC)wglGetProcAddress("glUniform4fv"))
+
+#ifdef MINIFIED_SHADERS
+extern const char* shader_frag;
+#endif
 
 static GLuint fragShader;
 
@@ -35,16 +35,14 @@ void intro_init(void) {
         ExitProcess(1);
     }
     #endif
-
-    glUseProgram(fragShader);
 }
-
 
 // Paramaters to pass to the fragment shader at each frame as an array of vec4s
 static GLfloat params[4*1] = {(float)XRES, (float)YRES, 0.f, 0.f};
 
 void intro_do(GLfloat time) {
     params[2] = time;
-    glProgramUniform4fv(fragShader, 0, 1, params);
+    glUseProgram(fragShader);
+    glUniform4fv(0, 1, params);
     glRects(-1, -1, 1, 1);
 }

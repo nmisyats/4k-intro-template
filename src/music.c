@@ -1,32 +1,62 @@
-#include "music.h"
+#include <windows.h>
+#include <GL/gl.h>
+#include "glext.h" // contains type definitions for all modern OpenGL functions
 #include "config.h"
-#include "synth.h"
-#include "fp.h"
-#include <math.h>
+#include "utils.h"
+#include "music.h"
 
-#define MUSIC_BPM (60*20/INTRO_DURATION)
-#define BEAT_DURATION (60.f/(float)MUSIC_BPM)
-#define MAX_AMPLITUDE (32767.0f/4.f) // must be less or equal than 32767
 
-static char notes[] = {C(3), G(3), F(3), G(3)};
+#define glCreateShaderProgramv ((PFNGLCREATESHADERPROGRAMVPROC)wglGetProcAddress("glCreateShaderProgramv"))
+#define glUseProgram ((PFNGLUSEPROGRAMPROC)wglGetProcAddress("glUseProgram"))
+#define glUniform4fv ((PFNGLUNIFORM4FVPROC)wglGetProcAddress("glUniform4fv"))
+#define glDispatchCompute ((PFNGLDISPATCHCOMPUTEPROC)wglGetProcAddress("glDispatchCompute"))
+#define glCreateBuffers ((PFNGLCREATEBUFFERSPROC)wglGetProcAddress("glCreateBuffers"))
+#define glNamedBufferStorage ((PFNGLNAMEDBUFFERSTORAGEPROC)wglGetProcAddress("glNamedBufferStorage"))
+#define glBindBufferBase ((PFNGLBINDBUFFERBASEPROC)wglGetProcAddress("glBindBufferBase"))
+#define glMemoryBarrier ((PFNGLMEMORYBARRIERPROC)wglGetProcAddress("glMemoryBarrier"))
+#define glGetNamedBufferSubData ((PFNGLGETNAMEDBUFFERSUBDATAPROC)wglGetProcAddress("glGetNamedBufferSubData"))
 
-#define N_NOTES (sizeof(notes)/sizeof(char))
+#define CEIL_DIV(x, y) ((x) + (y) - 1) / (y)
+
+#define SAMPLES_PER_INVOC 256
+#define MAX_AMPLITUDE (32767/16) // must be less or equal than 32767
+
+#ifdef MINIFIED_SHADERS
+extern const char* music_comp;
+#endif
+
+static GLint cpuMusicBuffer[MUSIC_BUFFER_SIZE];
+static GLfloat params[4*1] = {(float)SAMPLE_RATE, (float)MAX_AMPLITUDE, 0, 0};
 
 void music_init(short* buffer) {
-    // Generate the music's audio signal
-    for(unsigned int i = 0; i < NUM_SAMPLES; i++) {
-        float t = (float)i/(float)SAMPLE_RATE;
-        float u = t/BEAT_DURATION;
+    #ifndef MINIFIED_SHADERS
+    const char* music_comp = load_shader("music.comp");
+    #endif
 
-        char n = notes[(int)(t/BEAT_DURATION) % N_NOTES];
-        float f = freq(n);
-        float v = fmodf(u, 1.f);
+    GLuint musicShader = glCreateShaderProgramv(GL_COMPUTE_SHADER, 1, &music_comp);
 
-        float out = tri(f*t);
-        out *= envelope(v, 0.1f, 0.1f, 0.5f);
+    #ifndef MINIFIED_SHADERS
+    free(music_comp);
+    #endif
 
-        short amp = (short)(out*MAX_AMPLITUDE);
-        buffer[2*i+0] = amp; // left channel
-        buffer[2*i+1] = amp; // right channel
+    #ifdef DEBUG
+    if(!check_shader(musicShader)) {
+        ExitProcess(1);
+    }
+    #endif
+
+    GLuint gpuMusicBuffer;
+    glCreateBuffers(1, &gpuMusicBuffer);
+    glNamedBufferStorage(gpuMusicBuffer, sizeof(cpuMusicBuffer), NULL, GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, gpuMusicBuffer);
+
+    glUseProgram(musicShader);
+    glUniform4fv(0, 1, params);
+    glDispatchCompute(CEIL_DIV(NUM_SAMPLES, 64*SAMPLES_PER_INVOC), 1, 1);
+    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+    glGetNamedBufferSubData(gpuMusicBuffer, 0, sizeof(cpuMusicBuffer), cpuMusicBuffer);
+    for(unsigned int i = 0; i < MUSIC_BUFFER_SIZE; i++) {
+        buffer[i] = (short)cpuMusicBuffer[i];
     }
 }

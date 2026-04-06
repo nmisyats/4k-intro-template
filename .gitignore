@@ -9,4 +9,4 @@ dis
 capture
 *.mp4
 *.mp3
-src/shaders.inl
+src/shaders.c
