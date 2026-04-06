@@ -170,10 +170,10 @@ int WINAPI wWinMain(
             #endif
             return 1;
         }
-        // Use music sample for timing
+        // Use music sample as finish condition
         #define INTRO_NOT_DONE musicTime.u.sample < NUM_SAMPLES
         #else
-        // Use elapsed time for timing
+        // Use elapsed time as finish condition
         DWORD startTime = timeGetTime();
         DWORD elapsedTime = 0;
         #define INTRO_NOT_DONE elapsedTime < INTRO_DURATION*1000
@@ -184,10 +184,13 @@ int WINAPI wWinMain(
         BOOL done = FALSE;
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)&done);
         MSG msg;
-        while(!done)
+        #define CONTINUE_INTRO !done
         #else
-        while(!GetAsyncKeyState(VK_ESCAPE) && INTRO_NOT_DONE)
+        // Continue intro until key press or intro finishes
+        #define CONTINUE_INTRO !GetAsyncKeyState(VK_ESCAPE) && INTRO_NOT_DONE
         #endif
+
+        while(CONTINUE_INTRO)
         {
             #ifdef DEBUG
             while(PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE)){
