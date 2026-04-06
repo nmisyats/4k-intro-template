@@ -187,9 +187,19 @@ $compileOptions += "/DXRES=$XRes"
 $compileOptions += "/DYRES=$YRes"
 
 
-# Get all source files
+# Get all handwritten source files. Generated sources are appended
+# explicitly for the configurations that need them.
+if (Test-Path $shadersSourceFile) {
+    $shadersSourceFile = (Resolve-Path -Path $shadersSourceFile).Path
+}
 $sourceFiles = Get-ChildItem -Path $sourceDir -Filter "*.c" -Recurse `
+                | Where-Object { $_.FullName -ne $shadersSourceFile } `
                 | ForEach-Object {$_.FullName}
+
+if ($MinifyShaders -and (Test-Path $shadersSourceFile)) {
+    $sourceFiles += (Get-Item $shadersSourceFile).FullName
+}
+$sourceFiles = $sourceFiles | Sort-Object -Unique
 
 # Create build directory if not already
 if (-not (Test-Path -Path $buildDir)) {
@@ -273,8 +283,8 @@ if($hasCompiledFiles) {
         $clOutput = cl $compileOptions "/Fo$objPath" /showIncludes $source 2>&1
         $code = $LASTEXITCODE
 
-        $srcDeps = GetDependenciesFromClOutput $clOutput
-        $srcDeps | Set-Content -Path $depPath
+        $srcDeps = @(GetDependenciesFromClOutput $clOutput)
+        Set-Content -Path $depPath -Value $srcDeps
 
         if($code -ne 0) {
             Write-Error "Compilation failed for: $source"
@@ -287,8 +297,8 @@ if($hasCompiledFiles) {
     Write-Host "Up to date. Nothing to compile." -ForegroundColor $infoColor
 }
 
-$objectFiles = Get-ChildItem -Path $buildDir -Filter "*.obj" -Recurse `
-                | ForEach-Object {$_.FullName}
+$objectFiles = $sourceFiles | ForEach-Object { GetSrcObjPath $_ } `
+                | Where-Object { Test-Path $_ }
 
 if(-not $NoExe) {
     if($SuffixWithRes) {
