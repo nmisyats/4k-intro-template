@@ -27,7 +27,7 @@ inline, rewrite or remove some of the code here in addition to writing your own.
 
 ## File structure
 
-- `shaders/`: the shaders' sources, minified into `shaders.inl` during build;
+- `shaders/`: the shaders' sources, minified into `shaders.c` during build;
 - `main.c`: entrypoint, creates the window and starts the music and rendering loop;
 - `config.h`: global settings;
 - `glext.h`, `khrplatform.h`: self-contained interfaces of OpenGL functions;
