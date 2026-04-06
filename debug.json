@@ -1,6 +1,7 @@
 {
     "DebugBuild": true,
     "Tiny": false,
+    "MinifyShaders": false,
     "Fullscreen": false,
     "Sound": true,
     "XRes": 640,

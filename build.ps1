@@ -4,6 +4,7 @@ param (
     $defaults = (Get-Content $Config | ConvertFrom-Json),
     [switch]$DebugBuild = $defaults.DebugBuild,
     [switch]$Tiny = $defaults.Tiny,
+    [switch]$MinifyShaders = $defaults.MinifyShaders,
     [switch]$Sound = $defaults.Sound,
     [switch]$Fullscreen = $defaults.Fullscreen,
     [int]$XRes = $defaults.XRes,
@@ -27,7 +28,7 @@ if ($MyInvocation.BoundParameters['defaults']) {
 
 
 $sourceDir = 'src' # Source files directory
-$buildDir = 'build' # Output directory for build files
+$buildDir = 'obj' # Output directory for build files
 $disasmDir = 'dis' # Output directory of disasembled files
 $shadersDir = "$sourceDir/shaders"
 $shadersIncludeFile = "$sourceDir/shaders.inl"
@@ -76,13 +77,13 @@ if($Capture) { # Capture build
         $HasSound = $true
     }
     $Tiny = $false
-    $DebugBuild = $false
     $Fullscreen = $false
 }
 elseif($Tiny) { # Tiny build (uses crinkler)
     $DebugBuild = $false
     $HasVideo = $true
     $HasSound = $Sound
+    $MinifyShaders = $true
 }
 elseif($DebugBuild) { # Debug build
     $HasVideo = $true
@@ -92,16 +93,18 @@ elseif($DebugBuild) { # Debug build
 else { # Release build
     $HasVideo = $true
     $HasSound = $Sound
+    $MinifyShaders = $true
 }
 
 # Print option summary
-Write-Host "Debug:      $DebugBuild"
-Write-Host "Tiny:       $Tiny"
-Write-Host "Fullscreen: $Fullscreen"
-Write-Host "XRes:       $XRes"
-Write-Host "YRes:       $YRes"
-Write-Host "HasSound:   $HasSound"
-Write-Host "HasVideo:   $HasVideo"
+Write-Host "DebugBuild:    $DebugBuild"
+Write-Host "Tiny:          $Tiny"
+Write-Host "Fullscreen:    $Fullscreen"
+Write-Host "MinifyShaders: $MinifyShaders"
+Write-Host "XRes:          $XRes"
+Write-Host "YRes:          $YRes"
+Write-Host "HasSound:      $HasSound"
+Write-Host "HasVideo:      $HasVideo"
 Write-Host ""
 
 # Utility functions to test if a given file needs to be updated based
@@ -132,14 +135,18 @@ function GetObjDepPath($sourceFile) {
 
 # Generate the minified shader source, since this operation can
 # take some time we only generate the file if it has been changed
-$shaderFiles = Get-ChildItem -Path $shadersDir -Recurse `
-                | Where-Object{$_.Extension -match '^.(frag|vert|glsl|comp)$'} `
-                | ForEach-Object {$_.FullName}
-if((ItemNeedsUpdate $shadersIncludeFile $shaderFiles)) {
-    Write-Host "Minifying shaders..." -ForegroundColor $infoColor
-    shader_minifier $shaderFiles -o $shadersIncludeFile
-    if($LASTEXITCODE -ne 0) {
-        return;
+if($MinifyShaders) {
+    $shaderFiles = Get-ChildItem -Path $shadersDir -Recurse `
+                    | Where-Object{$_.Extension -match '^.(frag|vert|glsl|comp)$'} `
+                    | ForEach-Object {$_.FullName}
+    if((ItemNeedsUpdate $shadersIncludeFile $shaderFiles)) {
+        if($MinifyShaders) {
+            Write-Host "Minifying shaders..." -ForegroundColor $infoColor
+            shader_minifier $shaderFiles -o $shadersIncludeFile
+            if($LASTEXITCODE -ne 0) {
+                return;
+            }
+        }
     }
 }
 
@@ -157,7 +164,7 @@ $compileOptions = @(
 if($Capture) {
     $compileOptions += '/DCAPTURE'
 }
-elseif($DebugBuild) {
+if($DebugBuild) {
     $compileOptions += '/DDEBUG'
     $compileOptions += '/Zi' # Generate debugging information
 }
@@ -172,6 +179,9 @@ if ($HasSound) {
 }
 if($Fullscreen) {
     $compileOptions += '/DFULLSCREEN'
+}
+if($MinifyShaders) {
+    $compileOptions += '/DMINIFIED_SHADERS'
 }
 $compileOptions += "/DXRES=$XRes"
 $compileOptions += "/DYRES=$YRes"
@@ -212,24 +222,22 @@ function GetDependenciesFromClOutput($clOutput) {
 # options changed
 
 # Check if any compile options have changed, recompile if changed
-$prevOptsPath = "$buildDir/cl.txt"
-$Recompile = $Clean
-if(-not $Recompile) {
-    if(-not (Test-Path -Path $prevOptsPath)) {
-        $Recompile = $true
-    } else {
-        $prevOpts = @(Get-Content -Path $prevOptsPath)
-        $cmp = Compare-Object $compileOptions $prevOpts
-        $Recompile = -not $null -eq $cmp
-    }
+$prevOptsPath = "$buildDir/options.txt"
+$hasNewOptions = $false
+if(-not (Test-Path -Path $prevOptsPath)) {
+    $hasNewOptions = $true
+} else {
+    $prevOpts = @(Get-Content -Path $prevOptsPath)
+    $cmp = Compare-Object $compileOptions $prevOpts
+    $hasNewOptions = -not $null -eq $cmp
 }
-if($Recompile) { # Save new compile options
+if($hasNewOptions) { # Save new compile options
     $compileOptions | Set-Content -Path $prevOptsPath
 }
 
 # Gather source files that needs to be recompiled
 $compileSources = @()
-if(-not $Recompile) {
+if(-not $hasNewOptions) {
     # If not a full compilation, check for modified sources or dependencies
     foreach($source in $sourceFiles) {
         $objPath = GetSrcObjPath $source
@@ -290,7 +298,6 @@ if(-not $NoExe) {
     }
 
     if($Capture) {
-        $Tiny = $false # No compression when in capture mode
         $outFile = "capture_$outFile"
     }
 
@@ -352,7 +359,8 @@ if($Disasm) {
         $baseName = (Split-Path $objectFile -Leaf).Split('.')[0]
         $dumpbinOptions = @(
             "/OUT:$disasmDir/$baseName.asm",
-            "/DISASM"
+            "/DISASM",
+            "/LINENUMBERS"
         )
         dumpbin $dumpbinOptions $objectFile | Out-Null
     }

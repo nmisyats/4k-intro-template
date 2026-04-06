@@ -2,7 +2,7 @@
 
 #include <windows.h>
 
-void start_capture(HWND hwnd);
-void finish_capture(HWND hwnd);
-void capture_frame(HWND hwnd);
-void save_audio(short* buffer, DWORD bytes, HWND hwnd);
+void start_capture(void);
+void finish_capture(void);
+void capture_frame(void);
+void save_audio(const short* buffer, DWORD bytes);

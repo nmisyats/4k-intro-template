@@ -34,8 +34,9 @@ inline, rewrite or remove some of the code here in addition to writing your own.
 - `fp.h`: useful set of approximate floats ([by iq](https://iquilezles.org/articles/float4k/));
 - `intro.h`/`intro.c`: rendering initialisation and update;
 - `synth.h`/`synth.c`: functions for the audio synthetizer;
-- `music.h`/`music.c`: music generation.
-- `capture.h`/`capture.c`: set of functions used for video capture
+- `music.h`/`music.c`: music generation;
+- `capture.h`/`capture.c`: set of functions used for video capture;
+- `utils.h`/`utils.c`: set of IO and error checking utility functions.
 
 ## Build
 
@@ -50,7 +51,7 @@ You can add your own for specific configurations.
 Building the project requires the following tools to be installed and accessible via a
 PowerShell command line (e.g. in PATH):
 
-- Microsoft Visual C++ compiler `cl.exe` and linker `link.exe` for x86
+- Microsoft Visual C++ compiler `cl.exe` and linker `link.exe` **for x86**
 (e.g. using the Powershell Developer Command Prompt). These are bundled in the the
 [Build Tools for Visual Studio](https://visualstudio.microsoft.com/downloads/?q=build+tools+for+visual+studio)
 (note that you don't need to install Visual Studio itself).

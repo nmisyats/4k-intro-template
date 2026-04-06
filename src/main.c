@@ -5,6 +5,7 @@
 #include "music.h"
 #include "config.h"
 #include "capture.h"
+#include "utils.h"
 
 
 static const PIXELFORMATDESCRIPTOR pfd = {
@@ -21,7 +22,7 @@ static DEVMODE displaySettings;
 
 static HWAVEOUT waveHandle;
 
-static short waveBuffer[MUSIC_DATA_BYTES];
+static short waveBuffer[MUSIC_BUFFER_SIZE];
 
 // https://learn.microsoft.com/en-us/windows/win32/api/mmeapi/ns-mmeapi-waveformatex
 static WAVEFORMATEX waveFormat = {
@@ -84,8 +85,7 @@ int WINAPI wWinMain(
     displaySettings.dmPelsHeight = YRES;
     displaySettings.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
     if(ChangeDisplaySettings(&displaySettings, CDS_FULLSCREEN) != DISP_CHANGE_SUCCESSFUL) {
-        ExitProcess(0);
-        return 0;
+        ERROR_EXIT();
     }
     ShowCursor(FALSE);
     
@@ -134,8 +134,7 @@ int WINAPI wWinMain(
     #endif
     
     if (hwnd == NULL) {
-        ExitProcess(0);
-        return 0;
+        ERROR_EXIT();
     }
 
     // Get the window's handle to a device context. A device context
@@ -150,26 +149,33 @@ int WINAPI wWinMain(
     HGLRC hglrc = wglCreateContext(hdc);
     wglMakeCurrent(hdc, hglrc);
 
-    #ifndef CAPTURE
+    #ifndef CAPTURE // Regular playback
         // Initialize the intro's rendering pipeline
-        intro_init(hwnd);
+        intro_init();
 
         #ifdef SOUND
         // Initialize the music file in memory
         music_init(waveBuffer);
         // Play the sound file directly from memory, asynchronously for the
         // music to play in background
-        if (waveOutOpen(&waveHandle, WAVE_MAPPER, &waveFormat, 0, 0, CALLBACK_NULL)) {
+        if (waveOutOpen(&waveHandle, WAVE_MAPPER, &waveFormat, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
             #ifdef DEBUG
-            MessageBox(hwnd, "Failed to play sound (waveOutOpen)", "Error", MB_OK);
+            MessageBox(NULL, "Failed to play sound (waveOutOpen).", "Error", MB_OK);
             #endif
-            ExitProcess(0);
-            return 0;
+            return 1;
         }
-        waveOutWrite(waveHandle, &waveHeader, sizeof(waveHeader));
+        if (waveOutWrite(waveHandle, &waveHeader, sizeof(waveHeader)) != MMSYSERR_NOERROR) {
+            #ifdef DEBUG
+            MessageBox(NULL, "Failed to play sound (waveOutWrite).", "Error", MB_OK);
+            #endif
+            return 1;
+        }
+        // Use music sample for timing
         #define INTRO_NOT_DONE musicTime.u.sample < NUM_SAMPLES
         #else
-        DWORD startTime = timeGetTime(), elapsedTime = 0;
+        // Use elapsed time for timing
+        DWORD startTime = timeGetTime();
+        DWORD elapsedTime = 0;
         #define INTRO_NOT_DONE elapsedTime < INTRO_DURATION*1000
         #endif
 
@@ -205,12 +211,12 @@ int WINAPI wWinMain(
             
             Sleep(1); // let other processes some time (1ms)
         }
-    #else
-        intro_init(hwnd);
+    #else // Capture playback
+        intro_init();
         
         #ifdef SOUND
         music_init(waveBuffer);
-        save_audio(waveBuffer, MUSIC_DATA_BYTES, hwnd);
+        save_audio(waveBuffer, MUSIC_DATA_BYTES);
         #endif
 
         #ifdef VIDEO
@@ -218,12 +224,12 @@ int WINAPI wWinMain(
         char consoleMsg[256];
         DWORD nbWritten;
 
-        start_capture(hwnd);
+        start_capture();
         for(int i = 0; i < INTRO_DURATION*CAPTURE_FRAMERATE; i++) {
             GLfloat time = ((GLfloat)i / (GLfloat)CAPTURE_FRAMERATE);
 
             intro_do(time);
-            capture_frame(hwnd);
+            capture_frame();
 
             if(i % CAPTURE_FRAMERATE == 0) {
                 wsprintf(consoleMsg,
@@ -232,7 +238,7 @@ int WINAPI wWinMain(
                 WriteConsole(hConsole, consoleMsg, lstrlen(consoleMsg), &nbWritten, NULL);
             }
         }
-        finish_capture(hwnd);
+        finish_capture();
         #endif
     #endif
 

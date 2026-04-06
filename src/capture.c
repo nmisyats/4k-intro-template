@@ -2,8 +2,8 @@
 #include <GL/gl.h>
 #include "glext.h"
 #include "config.h"
-
-#define FRAME_SIZE 3*XRES*YRES
+#include "utils.h"
+#include "music.h"
 
 
 #define glGenFramebuffers ((PFNGLGENFRAMEBUFFERSPROC)wglGetProcAddress("glGenFramebuffers"))
@@ -11,6 +11,7 @@
 #define glFramebufferTexture2D ((PFNGLFRAMEBUFFERTEXTURE2DPROC)wglGetProcAddress("glFramebufferTexture2D"))
 #define glCheckFramebufferStatus ((PFNGLCHECKFRAMEBUFFERSTATUSPROC)wglGetProcAddress("glCheckFramebufferStatus"))
 
+#define FRAME_SIZE 3*XRES*YRES
 
 static GLubyte frame[FRAME_SIZE];
 static GLuint fboTexture;
@@ -20,28 +21,19 @@ static HANDLE ffmpegStdinWrite;
 static PROCESS_INFORMATION ffmpegPi;
 
 
-static int write_all(HANDLE hnd, const void* data, DWORD bytes) {
-    const BYTE* p = (const BYTE*)data;
-    while (bytes > 0) {
-        DWORD nbWritten = 0;
-        if (!WriteFile(hnd, p, bytes, &nbWritten, NULL)) {
-            return 0; // error
-        }
-        p += nbWritten;
-        bytes -= nbWritten;
-    }
-    return 1; // success
-}
-
-void start_capture(HWND hwnd) {
+void start_capture(void) {
     SECURITY_ATTRIBUTES sa = {0};
     sa.nLength = sizeof(sa);
     sa.bInheritHandle = TRUE;
 
     HANDLE stdinRead = NULL;
-    CreatePipe(&stdinRead, &ffmpegStdinWrite, &sa, 0);
+    if(!CreatePipe(&stdinRead, &ffmpegStdinWrite, &sa, 0)) {
+        ERROR_EXIT();
+    }
 
-    SetHandleInformation(ffmpegStdinWrite, HANDLE_FLAG_INHERIT, 0);
+    if(!SetHandleInformation(ffmpegStdinWrite, HANDLE_FLAG_INHERIT, 0)) {
+        ERROR_EXIT();
+    }
 
     STARTUPINFO si = {0};
     si.cb = sizeof(si);
@@ -81,8 +73,7 @@ void start_capture(HWND hwnd) {
         &si, &ffmpegPi);
     
     if (!ok) {
-        MessageBox(hwnd, "Failed to start ffmpeg for video capture.", "Error", MB_OK);
-        ExitProcess(1);
+        ERROR_EXIT();
     }
 
     CloseHandle(stdinRead);
@@ -99,7 +90,7 @@ void start_capture(HWND hwnd) {
 
     // Check FBO is complete
     if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        MessageBox(hwnd, "FBO creation failed.", "Error", MB_OK);
+        MessageBox(NULL, "FBO creation failed.", "Error", MB_OK);
         ExitProcess(1);
     }
 
@@ -108,23 +99,22 @@ void start_capture(HWND hwnd) {
     glViewport(0, 0, XRES, YRES);
 }
 
-void capture_frame(HWND hwnd) {
+void capture_frame(void) {
     glReadPixels(0, 0, XRES, YRES, GL_RGB, GL_UNSIGNED_BYTE, frame);
     
-    if (!write_all(ffmpegStdinWrite, frame, FRAME_SIZE)) {
-        MessageBox(hwnd, "Failed to pipe frame to ffmpeg.", "Error", MB_OK);
-        ExitProcess(1);
+    if (!write_file(ffmpegStdinWrite, frame, FRAME_SIZE, NULL)) {
+        ERROR_EXIT();
     }
 }
 
-void finish_capture(HWND hwnd) {
+void finish_capture(void) {
     CloseHandle(ffmpegStdinWrite); // EOF to ffmpeg
     WaitForSingleObject(ffmpegPi.hProcess, INFINITE);
     
     DWORD exitCode = 0;
     GetExitCodeProcess(ffmpegPi.hProcess, &exitCode);
     if (exitCode != 0) {
-        MessageBox(hwnd, "Failed to encode video capture.", "Error", MB_OK);
+        MessageBox(NULL, "Failed to encode video capture.", "Error", MB_OK);
         ExitProcess(1);
     }
 
@@ -132,30 +122,27 @@ void finish_capture(HWND hwnd) {
     CloseHandle(ffmpegPi.hProcess);
 }
 
-void save_audio(short* buffer, DWORD bytes, HWND hwnd) {
+void save_audio(const short* buffer, DWORD nbBytes) {
     // Save raw buffer to file
-    HANDLE file = CreateFile(
+    HANDLE hFile = CreateFile(
         ".\\audio.raw",
         GENERIC_WRITE,
         0,
         NULL, 
         CREATE_ALWAYS,
         FILE_ATTRIBUTE_NORMAL,
-        NULL);
+        NULL
+    );
 
-    if(file == INVALID_HANDLE_VALUE) {
-        MessageBox(hwnd, "Failed to create audio file.", "Error", MB_OK);
-        ExitProcess(1);
+    if(hFile == INVALID_HANDLE_VALUE) {
+        ERROR_EXIT();
     }
 
-    if (!write_all(file, buffer, bytes)) {
-        CloseHandle(file);
-        DeleteFile(".\\audio.raw");
-        MessageBox(hwnd, "Failed to write raw audio file.", "Error", MB_OK);
-        ExitProcess(1);
+    if (!write_file(hFile, buffer, nbBytes, NULL)) {
+        ERROR_EXIT();
     }
 
-    CloseHandle(file);
+    CloseHandle(hFile);
 
     // Run ffmpeg to convert raw to mp3
     STARTUPINFOA si = {0};
@@ -166,9 +153,11 @@ void save_audio(short* buffer, DWORD bytes, HWND hwnd) {
     char cmd[1024];
     wsprintf(cmd,
         "ffmpeg -y "
-        "-f s16le -ar 44100 -ac 2 -i \"%s\" "
+        "-f s16le -ar %d -ac %d -i \"%s\" "
         "-c:a libmp3lame -q:a 2 "
         "\"%s\"",
+        SAMPLE_RATE,
+        NUM_CHANNELS,
         ".\\audio.raw",
         ".\\audio.mp3"
     );
@@ -183,9 +172,7 @@ void save_audio(short* buffer, DWORD bytes, HWND hwnd) {
     );
 
     if (!ok) {
-        DeleteFile(".\\audio.raw");
-        MessageBox(hwnd, "Failed to start ffmpeg for MP3 encoding.", "Error", MB_OK);
-        ExitProcess(1);
+        ERROR_EXIT();
     }
 
     WaitForSingleObject(pi.hProcess, INFINITE);
@@ -196,10 +183,10 @@ void save_audio(short* buffer, DWORD bytes, HWND hwnd) {
     CloseHandle(pi.hThread);
     CloseHandle(pi.hProcess);
 
-    DeleteFile(".\\audio.raw");
-
     if (exitCode != 0) {
-        MessageBox(hwnd, "ffmpeg MP3 encoding failed.", "Error", MB_OK);
+        MessageBox(NULL, "ffmpeg MP3 encoding failed.", "Error", MB_OK);
         ExitProcess(1);
     }
+
+    DeleteFile(".\\audio.raw");
 }

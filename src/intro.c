@@ -1,40 +1,42 @@
 #include <windows.h>
 #include <GL/gl.h>
-#include <malloc.h>
 #include "glext.h" // contains type definitions for all modern OpenGL functions
-#include "shaders.inl"
 #include "config.h"
+#include "utils.h"
+
+#ifdef MINIFIED_SHADERS
+#include "shaders.inl"
+#endif
+
 
 // Define the modern OpenGL functions to load from the driver
 
 #define glCreateShaderProgramv ((PFNGLCREATESHADERPROGRAMVPROC)wglGetProcAddress("glCreateShaderProgramv"))
 #define glUseProgram ((PFNGLUSEPROGRAMPROC)wglGetProcAddress("glUseProgram"))
 #define glProgramUniform4fv ((PFNGLPROGRAMUNIFORM4FVPROC)wglGetProcAddress("glProgramUniform4fv"))
-#define glGetProgramiv ((PFNGLGETPROGRAMIVPROC)wglGetProcAddress("glGetProgramiv"))
-#define glGetProgramInfoLog ((PFNGLGETPROGRAMINFOLOGPROC)wglGetProcAddress("glGetProgramInfoLog"))
-
 
 static GLuint fragShader;
 
-void intro_init(HWND hwnd) {
+void intro_init(void) {
+    #ifndef MINIFIED_SHADERS
+    const char* shader_frag = load_shader("shader.frag");
+    #endif
+
     // Create a fragment shader program, the default vertex shader will
     // be used (?)
     fragShader = glCreateShaderProgramv(GL_FRAGMENT_SHADER, 1, &shader_frag);
-    glUseProgram(fragShader);
+
+    #ifndef MINIFIED_SHADERS
+    free(shader_frag);
+    #endif
 
     #ifdef DEBUG
-    GLuint result;
-    glGetProgramiv(fragShader, GL_LINK_STATUS, &result);
-    if(!result) {
-        GLint infoLength;
-        glGetProgramiv(fragShader, GL_INFO_LOG_LENGTH, &infoLength);
-        GLchar* info = (GLchar*)malloc(infoLength * sizeof(GLchar));
-        glGetProgramInfoLog(fragShader, infoLength, NULL, info);
-        MessageBox(hwnd, info, "FS error", MB_OK);
-        free(info);
-        ExitProcess(0);
+    if(!check_shader(fragShader)) {
+        ExitProcess(1);
     }
     #endif
+
+    glUseProgram(fragShader);
 }
 
 
