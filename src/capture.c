@@ -50,7 +50,7 @@ void start_capture(void) {
         "-i \".\\audio.mp3\" "
         "-map 0:v:0 -map 1:a:0 "
         "-vf vflip "
-        "-c:v libx264 -preset ultrafast -crf 18 -pix_fmt yuv420p "
+        "-c:v libx264 -pix_fmt yuv420p "
         "-c:a aac -b:a 192k "
         "-shortest "
         "\".\\capture.mp4\"",
@@ -59,7 +59,7 @@ void start_capture(void) {
     wsprintf(cmd,
         "ffmpeg -y "
         "-f rawvideo -pix_fmt rgb24 -s %dx%d -r %d -i - "
-        "-c:v libx264 -preset ultrafast -crf 18 -pix_fmt yuv420p "
+        "-c:v libx264 -pix_fmt yuv420p "
         "\".\\capture.mp4\"",
         XRES, YRES, CAPTURE_FRAMERATE);
     #endif
