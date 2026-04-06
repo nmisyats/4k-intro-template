@@ -54,7 +54,9 @@ void music_init(short* buffer) {
     glUseProgram(musicShader);
     glUniform4fv(0, 1, params);
     glDispatchCompute(CEIL_DIV(NUM_SAMPLES, 64*SAMPLES_PER_INVOC), 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    // wait for shaders writes to be visible by getBufferSubData
+    // https://registry.khronos.org/OpenGL-Refpages/gl4/html/glMemoryBarrier.xhtml
+    glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 
     glGetNamedBufferSubData(gpuMusicBuffer, 0, sizeof(cpuMusicBuffer), cpuMusicBuffer);
     for(unsigned int i = 0; i < MUSIC_BUFFER_SIZE; i++) {
