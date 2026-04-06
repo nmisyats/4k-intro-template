@@ -12,6 +12,7 @@
 #define glUniform4fv ((PFNGLUNIFORM4FVPROC)wglGetProcAddress("glUniform4fv"))
 
 #ifdef MINIFIED_SHADERS
+// Generated strings in shaders.c by shader minifier
 extern const char* shader_frag;
 #endif
 
@@ -19,6 +20,8 @@ static GLuint fragShader;
 
 void intro_init(void) {
     #ifndef MINIFIED_SHADERS
+    // Load shaders from files directly when debugging to prevent reminifying
+    // when experimenting with changes
     const char* shader_frag = load_shader("shader.frag");
     #endif
 

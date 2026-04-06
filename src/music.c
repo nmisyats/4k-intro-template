@@ -5,6 +5,7 @@
 #include "utils.h"
 #include "music.h"
 
+// Define the modern OpenGL functions to load from the driver
 
 #define glCreateShaderProgramv ((PFNGLCREATESHADERPROGRAMVPROC)wglGetProcAddress("glCreateShaderProgramv"))
 #define glUseProgram ((PFNGLUSEPROGRAMPROC)wglGetProcAddress("glUseProgram"))
@@ -18,7 +19,7 @@
 
 #define CEIL_DIV(x, y) ((x) + (y) - 1) / (y)
 
-#define SAMPLES_PER_INVOC 256
+#define SAMPLES_PER_INVOC 256 // (roughly) how many samples each thread will generate
 #define MAX_AMPLITUDE (32767/16) // must be less or equal than 32767
 
 #ifdef MINIFIED_SHADERS
