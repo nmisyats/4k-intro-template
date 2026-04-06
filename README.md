@@ -20,8 +20,8 @@ For complete beginners to demoscene, check out this article on how to
 
 This template itself contains a very simple example intro that
 can be built and run directly.
-The rendering and music generation is mostly based on iq's example,
-but the synthetizer is custom made (and probably a bad example).
+The rendering is mostly based on iq's example,
+but the music is generated via a custom made shader-based synthesizer.
 Of course, when designing a production demo, you will want adapt,
 inline, rewrite or remove some of the code here in addition to writing your own.
 
@@ -33,7 +33,6 @@ inline, rewrite or remove some of the code here in addition to writing your own.
 - `glext.h`, `khrplatform.h`: self-contained interfaces of OpenGL functions;
 - `fp.h`: useful set of approximate floats ([by iq](https://iquilezles.org/articles/float4k/));
 - `intro.h`/`intro.c`: rendering initialisation and update;
-- `synth.h`/`synth.c`: functions for the audio synthetizer;
 - `music.h`/`music.c`: music generation;
 - `capture.h`/`capture.c`: set of functions used for video capture;
 - `utils.h`/`utils.c`: set of IO and error checking utility functions.
