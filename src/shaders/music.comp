@@ -1,7 +1,7 @@
 #version 460
 
 //[
-layout (local_size_x = 64) in;
+layout (local_size_x = 1024) in;
 //]
 
 layout(std430, binding=0) buffer music_buffer
@@ -15,18 +15,16 @@ const float PI = 3.1415926535;
 
 void main()
 {
-    float sampleRate = params.x;
-    float maxAmp = params.y;
-
+    uint gid = gl_GlobalInvocationID.x;
     uint numSamples = musicBuffer.length();
-    uint start = gl_GlobalInvocationID.x;
-    uint stride = gl_NumWorkGroups.x * gl_WorkGroupSize.x;
 
-    for(uint i = start; i < numSamples; i += stride) {
-        float t = float(i) / sampleRate;
-        float s = sin(2.*PI*440.*t);
+    if (gid >= numSamples) return;
 
-        float amp = clamp(s * maxAmp, -maxAmp, maxAmp);
-        musicBuffer[i] = ivec2(amp);
-    }
+    float sampleRate = params.x;
+    float t = float(gid) / sampleRate;
+    float s = sin(2.*PI*440.*t);
+
+    float maxAmp = params.y;
+    float amp = clamp(s * maxAmp, -maxAmp, maxAmp);
+    musicBuffer[gid] = ivec2(amp);
 }

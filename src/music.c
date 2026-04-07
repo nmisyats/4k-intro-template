@@ -19,7 +19,6 @@
 
 #define CEIL_DIV(x, y) ((x) + (y) - 1) / (y)
 
-#define SAMPLES_PER_INVOC 256 // (roughly) how many samples each thread will generate
 #define MAX_AMPLITUDE (32767/16) // must be less or equal than 32767
 
 #ifdef MINIFIED_SHADERS
@@ -53,8 +52,9 @@ void music_init(short* buffer) {
 
     glUseProgram(musicShader);
     glUniform4fv(0, 1, params);
-    glDispatchCompute(CEIL_DIV(NUM_SAMPLES, 64*SAMPLES_PER_INVOC), 1, 1);
-    // wait for shaders writes to be visible by getBufferSubData
+    // Dispatch one thread per sample, OpenGL guarantees a least 65535 workgroups
+    glDispatchCompute(CEIL_DIV(NUM_SAMPLES, 1024), 1, 1);
+    // Wait for shaders writes to be visible by getBufferSubData
     // https://registry.khronos.org/OpenGL-Refpages/gl4/html/glMemoryBarrier.xhtml
     glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 
