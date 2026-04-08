@@ -171,8 +171,8 @@ int WINAPI wWinMain(
             #endif
             return 1;
         }
-        // Use music sample as finish condition
-        #define INTRO_NOT_DONE musicTime.u.sample < NUM_SAMPLES
+        // Use music ending as finish condition
+        #define INTRO_NOT_DONE (waveHeader.dwFlags & WHDR_DONE) == 0
         #else
         // Use elapsed time as finish condition
         DWORD startTime = timeGetTime();
