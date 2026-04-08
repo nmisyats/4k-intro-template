@@ -25,7 +25,7 @@
 extern const char* music_comp;
 #endif
 
-static GLfloat params[4*1] = {(float)SAMPLE_RATE, (float)MAX_AMPLITUDE, 0, 0};
+static GLfloat params[4*1] = {(float)SAMPLE_RATE, (float)MAX_AMPLITUDE, 0.f, 0.f};
 
 void music_init(short* buffer) {
     #ifndef MINIFIED_SHADERS
