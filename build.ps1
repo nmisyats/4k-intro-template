@@ -302,7 +302,7 @@ $objectFiles = $sourceFiles | ForEach-Object { GetSrcObjPath $_ } `
 
 if(-not $NoExe) {
     if($SuffixWithRes) {
-        $outFile = "$OutName_$YRes.exe"
+        $outFile = "$OutName-$YRes.exe"
     } else {
         $outFile = "$OutName.exe"
     }
