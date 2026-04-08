@@ -28,7 +28,8 @@ if ($MyInvocation.BoundParameters['defaults']) {
 
 
 $sourceDir = 'src' # Source files directory
-$buildDir = 'obj' # Output directory for build files
+$buildDir = 'obj' # Output directory for object files
+$cacheDir = 'cache' # Directory for cached build files
 $disasmDir = 'dis' # Output directory of disasembled files
 $shadersDir = "$sourceDir/shaders"
 $shadersSourceFile = "$sourceDir/shaders.c"
@@ -41,6 +42,9 @@ if ($Clean) {
     Remove-Item .\*.exe, .\*.pdb, .\*.ilk
     if (Test-Path $buildDir) {
         Remove-Item $buildDir -Recurse
+    }
+    if (Test-Path $cacheDir) {
+        Remove-Item $cacheDir -Recurse
     }
     if (Test-Path $shadersSourceFile) {
         Remove-Item $shadersSourceFile
@@ -62,6 +66,14 @@ try {
 } catch {
     Write-Error "shader_minifier.exe not found."
     return
+}
+
+# Create build directories
+if (-not (Test-Path -Path $buildDir)) {
+    mkdir $buildDir | Out-Null
+}
+if (-not (Test-Path -Path $cacheDir)) {
+    mkdir $cacheDir | Out-Null
 }
 
 # Option selection logic
@@ -140,7 +152,7 @@ if($MinifyShaders) {
 
 # Utility function to check if a command option list have changed
 function OptionsHaveChanged($optionsList, $prevOptionsFile) {
-    $prevOptionsPath = "$buildDir/$prevOptionsFile"
+    $prevOptionsPath = "$cacheDir/$prevOptionsFile"
     $hasNewOptions = $false
     if(-not (Test-Path -Path $prevOptionsPath)) {
         $hasNewOptions = $true
@@ -206,11 +218,6 @@ if ($MinifyShaders -and (Test-Path $shadersSourceFile)) {
 }
 $sourceFiles = $sourceFiles | Sort-Object -Unique
 
-# Create build directory if not already
-if (-not (Test-Path -Path $buildDir)) {
-    mkdir $buildDir | Out-Null
-}
-
 
 # Compile
 # Basic incremental build implementation
@@ -239,7 +246,7 @@ function GetSrcObjPath($sourceFile) {
 
 # Get path of file to store dependencies of an object file
 function GetObjDepPath($sourceFile) {
-    "$buildDir/$((Get-Item $sourceFile).BaseName).d"
+    "$cacheDir/$((Get-Item $sourceFile).BaseName).d"
 }
 
 
