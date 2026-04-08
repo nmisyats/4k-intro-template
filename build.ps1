@@ -187,6 +187,7 @@ if($DebugBuild) {
 }
 else { # Release
     $compileOptions += '/GS-' # No buffer security check
+    $compileOptions += '/Gr' # Use __fastcall calling convention
 }
 if($HasVideo) {
     $compileOptions += '/DVIDEO'
