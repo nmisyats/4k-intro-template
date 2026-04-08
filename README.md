@@ -30,7 +30,7 @@ inline, rewrite or remove some of the code here in addition to writing your own.
 - `shaders/`: the shaders' sources, minified into `shaders.c` during build;
 - `main.c`: entrypoint, creates the window and starts the music and rendering loop;
 - `config.h`: global settings;
-- `glext.h`, `khrplatform.h`: self-contained interfaces of OpenGL functions;
+- `glext.h`, `khrplatform.h`: self-contained interfaces of OpenGL functions, from the [Khronos Registry](https://registry.khronos.org/OpenGL/index_gl.php);
 - `fp.h`: useful set of approximate floats ([by iq](https://iquilezles.org/articles/float4k/));
 - `intro.h`/`intro.c`: rendering initialisation and update;
 - `music.h`/`music.c`: music generation;
