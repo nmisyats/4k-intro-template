@@ -8,6 +8,7 @@
 #include "utils.h"
 
 
+// https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-pixelformatdescriptor
 static const PIXELFORMATDESCRIPTOR pfd = {
     .nSize = sizeof(PIXELFORMATDESCRIPTOR),
     .nVersion = 1,
