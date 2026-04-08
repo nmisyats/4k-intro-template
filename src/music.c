@@ -25,7 +25,6 @@
 extern const char* music_comp;
 #endif
 
-static GLint cpuMusicBuffer[MUSIC_BUFFER_SIZE];
 static GLfloat params[4*1] = {(float)SAMPLE_RATE, (float)MAX_AMPLITUDE, 0, 0};
 
 void music_init(short* buffer) {
@@ -47,7 +46,7 @@ void music_init(short* buffer) {
 
     GLuint gpuMusicBuffer;
     glCreateBuffers(1, &gpuMusicBuffer);
-    glNamedBufferStorage(gpuMusicBuffer, sizeof(cpuMusicBuffer), NULL, GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(gpuMusicBuffer, MUSIC_DATA_BYTES, NULL, GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, gpuMusicBuffer);
 
     glUseProgram(musicShader);
@@ -58,8 +57,5 @@ void music_init(short* buffer) {
     // https://registry.khronos.org/OpenGL-Refpages/gl4/html/glMemoryBarrier.xhtml
     glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 
-    glGetNamedBufferSubData(gpuMusicBuffer, 0, sizeof(cpuMusicBuffer), cpuMusicBuffer);
-    for(unsigned int i = 0; i < MUSIC_BUFFER_SIZE; i++) {
-        buffer[i] = (short)cpuMusicBuffer[i];
-    }
+    glGetNamedBufferSubData(gpuMusicBuffer, 0, MUSIC_DATA_BYTES, (void*)buffer);
 }
