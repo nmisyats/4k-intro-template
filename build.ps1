@@ -227,27 +227,34 @@ function GetDependenciesFromClOutput($clOutput) {
       | Sort-Object -Unique
 }
 
+function OptionsHaveChanged($optionsList, $prevOptionsFile) {
+    $prevOptionsPath = "$buildDir/$prevOptionsFile"
+    $hasNewOptions = $false
+    if(-not (Test-Path -Path $prevOptionsPath)) {
+        $hasNewOptions = $true
+    } else {
+        $prevOpts = @(Get-Content -Path $prevOptionsPath)
+        $cmp = Compare-Object $optionsList $prevOpts
+        $hasNewOptions = -not $null -eq $cmp
+    }
+    if($hasNewOptions) { # Save new options
+        $optionsList | Set-Content -Path $prevOptionsPath
+    }
+    return $hasNewOptions
+}
+
 
 # Compile only the sources that have been modified except if compile
 # options changed
 
 # Check if any compile options have changed, recompile if changed
-$prevOptsPath = "$buildDir/options.txt"
-$hasNewOptions = $false
-if(-not (Test-Path -Path $prevOptsPath)) {
-    $hasNewOptions = $true
-} else {
-    $prevOpts = @(Get-Content -Path $prevOptsPath)
-    $cmp = Compare-Object $compileOptions $prevOpts
-    $hasNewOptions = -not $null -eq $cmp
-}
-if($hasNewOptions) { # Save new compile options
-    $compileOptions | Set-Content -Path $prevOptsPath
-}
 
 # Gather source files that needs to be recompiled
 $compileSources = @()
-if(-not $hasNewOptions) {
+if(OptionsHaveChanged $compileOptions "cl.txt") {
+    # If compile options have changed, recompile everything
+    $compileSources = $sourceFiles
+} else {
     # If not a full compilation, check for modified sources or dependencies
     foreach($source in $sourceFiles) {
         $objPath = GetSrcObjPath $source
@@ -264,14 +271,11 @@ if(-not $hasNewOptions) {
             $compileSources += $source
         }
     }
-} else {
-    $compileSources = $sourceFiles
 }
 $compileSources = $compileSources | Sort-Object -Unique
 
 # Compile source files
-$hasCompiledFiles = ($compileSources.count -ne 0)
-if($hasCompiledFiles) {
+if($compileSources.count -ne 0) {
     Write-Host "Compile options: $compileOptions"
 
     foreach($source in $compileSources) {
@@ -297,16 +301,18 @@ if($hasCompiledFiles) {
     Write-Host "Up to date. Nothing to compile." -ForegroundColor $infoColor
 }
 
+# Get corresponding object files' names for each source file
 $objectFiles = $sourceFiles | ForEach-Object { GetSrcObjPath $_ } `
                 | Where-Object { Test-Path $_ }
 
+# Link executable
 if(-not $NoExe) {
+    # Executable name
     if($SuffixWithRes) {
-        $outFile = "$OutName-$YRes.exe"
+        $outFile = "$OutName`_$YRes`p.exe"
     } else {
         $outFile = "$OutName.exe"
     }
-
     if($Capture) {
         $outFile = "capture_$outFile"
     }
@@ -321,6 +327,7 @@ if(-not $NoExe) {
             $extraOptions += "/ORDERTRIES:$CrinklerTries"
         }
 
+        # Always (re)link in tiny mode even if object files haven't changed
         crinkler /OUT:$outFile `
                 /SUBSYSTEM:WINDOWS `
                 /ENTRY:wWinMain `
@@ -334,9 +341,7 @@ if(-not $NoExe) {
             return
         }
     } else {
-        Write-Host "Default linking" -ForegroundColor $infoColor
-
-        $linkOptions = @()
+        $linkOptions = @("/OUT:$outFile")
         if ($DebugBuild) {
             $linkOptions += "/DEBUG"
         }
@@ -344,15 +349,21 @@ if(-not $NoExe) {
             $linkOptions += "/SUBSYSTEM:CONSOLE"
             $linkOptions += "/ENTRY:wWinMainCRTStartup"
         }
-        
-        $linkOutput = link /OUT:$outFile $linkOptions `
-            $objectFiles `
-            user32.lib gdi32.lib opengl32.lib Winmm.lib 2>&1
-        
-        if($LASTEXITCODE -ne 0) {
-            Write-Error "Linking failed."
-            $linkOutput | ForEach-Object { Write-Host $_ }
-            return
+
+        if((OptionsHaveChanged $linkOptions "link.txt") `
+            -or (ItemNeedsUpdate $outFile $objectFiles)
+        ) {
+            # Link only if new options or newer object files
+            Write-Host "Default linking" -ForegroundColor $infoColor
+
+            $linkOutput = link $linkOptions $objectFiles `
+                user32.lib gdi32.lib opengl32.lib Winmm.lib 2>&1
+            
+            if($LASTEXITCODE -ne 0) {
+                Write-Error "Linking failed."
+                $linkOutput | ForEach-Object { Write-Host $_ }
+                return
+            }
         }
     }
 
