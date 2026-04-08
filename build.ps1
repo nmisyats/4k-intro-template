@@ -372,16 +372,21 @@ if(-not $NoExe) {
 
 # Optional disassembly for debugging
 if($Disasm) {
+    try {
+        Get-Command "dumpbin" -ErrorAction Stop | Out-Null
+    } catch {
+        Write-Error "dumpbin.exe not found."
+        return
+    }
     if(-not (Test-Path -Path $disasmDir)) {
         mkdir $disasmDir | Out-Null
     }
     Write-Host "Disassembling generated object files" -ForegroundColor $infoColor
     foreach($objectFile in $objectFiles) {
-        $baseName = (Split-Path $objectFile -Leaf).Split('.')[0]
+        $baseName = (Get-Item $objectFile).BaseName
         $dumpbinOptions = @(
             "/OUT:$disasmDir/$baseName.asm",
-            "/DISASM",
-            "/LINENUMBERS"
+            "/DISASM"
         )
         dumpbin $dumpbinOptions $objectFile | Out-Null
     }
