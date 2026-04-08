@@ -319,7 +319,7 @@ if(-not $NoExe) {
         $outFile = "$OutName.exe"
     }
     if($Capture) {
-        $outFile = "capture_$outFile.exe"
+        $outFile = "capture_$outFile"
     }
 
     # Link
