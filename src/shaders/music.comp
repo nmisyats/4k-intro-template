@@ -6,7 +6,7 @@ layout (local_size_x = 1024) in;
 
 layout(std430, binding=0) buffer music_buffer
 {
-    int musicBuffer[];
+    vec2 musicBuffer[];
 };
 
 layout(location=0) uniform vec4 params;
@@ -26,9 +26,5 @@ void main()
     vec2 a = 0.5 + 0.5*vec2(sin(t), cos(t));
     vec2 s = a * sin(2.*PI*440.*t);
 
-    // pack into 2x16 bit stereo sample
-    float maxAmp = params.y;
-    ivec2 amp = ivec2(clamp(s * maxAmp, -maxAmp, maxAmp));
-    int samp = (amp.y << 16) | (amp.x & 0xFFFF);
-    musicBuffer[gid] = samp;
+    musicBuffer[gid] = clamp(s, -1., 1.);
 }

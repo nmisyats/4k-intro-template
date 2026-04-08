@@ -1,6 +1,6 @@
 #include <windows.h>
+#include <mmreg.h> // defines WAVE_FORMAT_IEEE_FLOAT
 #include <GL/gl.h>
-#include <memory.h>
 #include "intro.h"
 #include "music.h"
 #include "config.h"
@@ -23,11 +23,11 @@ static DEVMODE displaySettings;
 
 static HWAVEOUT waveHandle;
 
-static short waveBuffer[MUSIC_BUFFER_SIZE];
+static float waveBuffer[MUSIC_BUFFER_SIZE];
 
 // https://learn.microsoft.com/en-us/windows/win32/api/mmeapi/ns-mmeapi-waveformatex
 static WAVEFORMATEX waveFormat = {
-    .wFormatTag = WAVE_FORMAT_PCM,
+    .wFormatTag = WAVE_FORMAT_IEEE_FLOAT,
     .nChannels = NUM_CHANNELS,
     .nSamplesPerSec = SAMPLE_RATE,
     .nAvgBytesPerSec = BYTE_RATE,

@@ -122,7 +122,7 @@ void finish_capture(void) {
     CloseHandle(ffmpegPi.hProcess);
 }
 
-void save_audio(const short* buffer, DWORD nbBytes) {
+void save_audio(const float* buffer, DWORD nbBytes) {
     // Save raw buffer to file
     HANDLE hFile = CreateFile(
         ".\\audio.raw",
@@ -153,7 +153,7 @@ void save_audio(const short* buffer, DWORD nbBytes) {
     char cmd[1024];
     wsprintf(cmd,
         "ffmpeg -y "
-        "-f s16le -ar %d -ac %d -i \"%s\" "
+        "-f f32le -ar %d -ac %d -i \"%s\" "
         "-c:a libmp3lame -q:a 2 "
         "\"%s\"",
         SAMPLE_RATE,

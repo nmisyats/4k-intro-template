@@ -19,15 +19,13 @@
 
 #define CEIL_DIV(x, y) ((x) + (y) - 1) / (y)
 
-#define MAX_AMPLITUDE (32767/16) // must be less or equal than 32767
-
 #ifdef MINIFIED_SHADERS
 extern const char* music_comp;
 #endif
 
-static GLfloat params[4*1] = {(float)SAMPLE_RATE, (float)MAX_AMPLITUDE, 0.f, 0.f};
+static GLfloat params[4*1] = {(float)SAMPLE_RATE, 0.f, 0.f, 0.f};
 
-void music_init(short* buffer) {
+void music_init(float* buffer) {
     #ifndef MINIFIED_SHADERS
     const char* music_comp = load_shader("music.comp");
     #endif
