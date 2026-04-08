@@ -204,7 +204,7 @@ int WINAPI wWinMain(
             #ifdef SOUND
             // Get the new music time
             waveOutGetPosition(waveHandle, &musicTime, sizeof(MMTIME));
-            GLfloat time = ((GLfloat)musicTime.u.sample / SAMPLE_RATE);
+            GLfloat time = (GLfloat)musicTime.u.sample / SAMPLE_RATE;
             #else
             elapsedTime = timeGetTime() - startTime;
             GLfloat time = (GLfloat)elapsedTime / 1000.f;
