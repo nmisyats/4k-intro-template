@@ -3,7 +3,9 @@
 #version 460
 
 layout (location=0) uniform vec4 params;
+
 out vec4 outCol;
+
 
 mat2 rot(float a) {
     float c = cos(a);
@@ -11,6 +13,7 @@ mat2 rot(float a) {
     return mat2(c, -s, s, c);
 }
 
+// box SDF from: https://iquilezles.org/articles/distfunctions/
 float sdBox(vec3 p, vec3 b){
     vec3 q = abs(p) - b;
     return length(max(q, 0.)) + min(max(q.x,max(q.y,q.z)),0.0);
@@ -27,7 +30,7 @@ float map(vec3 p){
 
 float raymarch(vec3 ro, vec3 rd) {
     float t = 0.;
-    for(float i = 0.; i < 32.; ++i){
+    for(int i = 0; i < 32; i++){
         float d = map(ro + rd*t);
         if(d < 0.001){
             return t;
@@ -37,6 +40,7 @@ float raymarch(vec3 ro, vec3 rd) {
     return -1.;
 }
 
+// numerical normal: https://iquilezles.org/articles/normalsSDF/
 vec3 normal(vec3 p){
     vec2 h = vec2(0.001, 0.);
     return normalize(vec3(
@@ -51,23 +55,25 @@ void main()
     vec2 uv = gl_FragCoord.xy/params.xy;
     uv -= 0.5;
     uv.x *= params.x/params.y;
+
     vec3 ro = vec3(0.,0.,-5.);
     vec3 rd = normalize(vec3(uv, 1.));
-    vec3 col = vec3(0.);
     float t = raymarch(ro, rd);
+
+    vec3 col = vec3(0.5,0.6,0.7); // sky color
     if(t > 0.){
+        // basic shading
         vec3 ldir = normalize(vec3(1.,1.,-1.));
         vec3 p = ro + rd*t;
         vec3 n = normal(p);
         vec3 h = normalize(ldir-rd);
-        float fd = max(0., dot(n,ldir));
-        float fs = pow(max(0.,dot(n,h)),16.0);
+        float fd = max(0.,dot(n,ldir));
+        float fs = pow(max(0.,dot(n,h)), 16.0);
         float fr = pow(1.-max(0.,dot(n,-rd)), 5.);
         col = vec3(0.65,0.6,0.5)*fd + vec3(0.9,0.8,0.7)*fs*(0.5+0.5*fr);
-        col += vec3(0.1,0.2,0.3)*0.2*(max(0., -dot(n,ldir))+fr);
-    } else {
-        col = vec3(0.5,0.6,0.7);
+        col += vec3(0.1,0.2,0.3)*0.2*(max(0.,-dot(n,ldir))+fr);
     }
-    col = pow(col, vec3(1./2.2));
-    outCol = vec4(col,1.0);
+
+    col = pow(col, vec3(1./2.2)); // gamma correction
+    outCol = vec4(col, 1.);
 }
