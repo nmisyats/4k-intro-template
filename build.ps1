@@ -123,16 +123,6 @@ function ItemNeedsUpdate($itemPath, $dependsPaths) {
     return $false
 }
 
-# Get path of target object file for a given source file
-function GetSrcObjPath($sourceFile) {
-    "$buildDir/$((Get-Item $sourceFile).BaseName).obj"
-}
-
-# Get path of file to store dependencies of an object file
-function GetObjDepPath($sourceFile) {
-    "$buildDir/$((Get-Item $sourceFile).BaseName).d"
-}
-
 # Generate the minified shader source, since this operation can
 # take some time we only generate the file if it has been changed
 if($MinifyShaders) {
@@ -140,14 +130,29 @@ if($MinifyShaders) {
                     | Where-Object{$_.Extension -match '^.(frag|vert|glsl|comp)$'} `
                     | ForEach-Object {$_.FullName}
     if((ItemNeedsUpdate $shadersSourceFile $shaderFiles)) {
-        if($MinifyShaders) {
-            Write-Host "Minifying shaders..." -ForegroundColor $infoColor
-            shader_minifier $shaderFiles -o $shadersSourceFile
-            if($LASTEXITCODE -ne 0) {
-                return;
-            }
+        Write-Host "Minifying shaders..." -ForegroundColor $infoColor
+        shader_minifier $shaderFiles -o $shadersSourceFile
+        if($LASTEXITCODE -ne 0) {
+            return;
         }
     }
+}
+
+# Utility function to check if a command option list have changed
+function OptionsHaveChanged($optionsList, $prevOptionsFile) {
+    $prevOptionsPath = "$buildDir/$prevOptionsFile"
+    $hasNewOptions = $false
+    if(-not (Test-Path -Path $prevOptionsPath)) {
+        $hasNewOptions = $true
+    } else {
+        $prevOptions = @(Get-Content -Path $prevOptionsPath)
+        $cmp = Compare-Object $optionsList $prevOptions
+        $hasNewOptions = -not $null -eq $cmp
+    }
+    if($hasNewOptions) { # Save new options
+        $optionsList | Set-Content -Path $prevOptionsPath
+    }
+    return $hasNewOptions
 }
 
 # Available options:
@@ -227,27 +232,19 @@ function GetDependenciesFromClOutput($clOutput) {
       | Sort-Object -Unique
 }
 
-function OptionsHaveChanged($optionsList, $prevOptionsFile) {
-    $prevOptionsPath = "$buildDir/$prevOptionsFile"
-    $hasNewOptions = $false
-    if(-not (Test-Path -Path $prevOptionsPath)) {
-        $hasNewOptions = $true
-    } else {
-        $prevOpts = @(Get-Content -Path $prevOptionsPath)
-        $cmp = Compare-Object $optionsList $prevOpts
-        $hasNewOptions = -not $null -eq $cmp
-    }
-    if($hasNewOptions) { # Save new options
-        $optionsList | Set-Content -Path $prevOptionsPath
-    }
-    return $hasNewOptions
+# Get path of target object file for a given source file
+function GetSrcObjPath($sourceFile) {
+    "$buildDir/$((Get-Item $sourceFile).BaseName).obj"
+}
+
+# Get path of file to store dependencies of an object file
+function GetObjDepPath($sourceFile) {
+    "$buildDir/$((Get-Item $sourceFile).BaseName).d"
 }
 
 
 # Compile only the sources that have been modified except if compile
 # options changed
-
-# Check if any compile options have changed, recompile if changed
 
 # Gather source files that needs to be recompiled
 $compileSources = @()
@@ -301,7 +298,7 @@ if($compileSources.count -ne 0) {
     Write-Host "Up to date. Nothing to compile." -ForegroundColor $infoColor
 }
 
-# Get corresponding object files' names for each source file
+# Get corresponding object file name for each source file
 $objectFiles = $sourceFiles | ForEach-Object { GetSrcObjPath $_ } `
                 | Where-Object { Test-Path $_ }
 
@@ -314,7 +311,7 @@ if(-not $NoExe) {
         $outFile = "$OutName.exe"
     }
     if($Capture) {
-        $outFile = "capture_$outFile"
+        $outFile = "capture_$outFile.exe"
     }
 
     # Link
