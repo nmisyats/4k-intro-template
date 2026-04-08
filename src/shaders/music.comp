@@ -23,7 +23,7 @@ void main()
     float sampleRate = params.x;
     float t = float(gid) / sampleRate;
     // x = left, y = right
-    vec2 a = vec2(sin(t), cos(t));
+    vec2 a = 0.5 + 0.5*vec2(sin(t), cos(t));
     vec2 s = a * sin(2.*PI*440.*t);
 
     // pack into 2x16 bit stereo sample
