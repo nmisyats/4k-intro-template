@@ -102,7 +102,7 @@ elseif($DebugBuild) { # Debug build
     $HasSound = $Sound
     $Tiny = $false
 }
-else { # Release build
+else {
     $HasVideo = $true
     $HasSound = $Sound
     $MinifyShaders = $true
@@ -207,6 +207,15 @@ if($MinifyShaders) {
 $compileOptions += "/DXRES=$XRes"
 $compileOptions += "/DYRES=$YRes"
 
+# Optional disassembly for debugging
+if($Disasm) {
+    if(-not (Test-Path -Path $disasmDir)) {
+        mkdir $disasmDir | Out-Null
+    }
+    $compileOptions += '/FA' # Enable assembly output
+    $compileOptions += "/Fa$disasmDir/" # Output assembly in disassembly directory
+}
+
 
 # Get all handwritten source files. Generated sources are appended
 # explicitly for the configurations that need them.
@@ -243,14 +252,19 @@ function GetDependenciesFromClOutput($clOutput) {
       | Sort-Object -Unique
 }
 
-# Get path of target object file for a given source file
+# Get target path of the object file of source file
 function GetSrcObjPath($sourceFile) {
-    "$buildDir/$((Get-Item $sourceFile).BaseName).obj"
+    return "$buildDir/$((Get-Item $sourceFile).BaseName).obj"
 }
 
-# Get path of file to store dependencies of an object file
+# Get path of the file storing dependencies of a source file
 function GetObjDepPath($sourceFile) {
-    "$cacheDir/$((Get-Item $sourceFile).BaseName).d"
+    return "$cacheDir/$((Get-Item $sourceFile).BaseName).d"
+}
+
+# Get target path of the assembly file of source file
+function GetSrcAsmPath($sourceFile) {
+    return "$disasmDir/$((Get-Item $sourceFile).BaseName).asm"
 }
 
 
@@ -267,16 +281,23 @@ if(OptionsHaveChanged $compileOptions "cl.txt") {
     foreach($source in $sourceFiles) {
         $objPath = GetSrcObjPath $source
         $depPath = GetObjDepPath $source
-        $depsPaths = @($source) # Paths of required sources for this object file
+        $deps = @($source) # Paths of required sources for this object file
         if(Test-Path $depPath) {
-            $depsPaths += Get-Content $depPath
+            $deps += Get-Content $depPath
         } else { # No dependency cache yet
             $compileSources += $source
             continue
         }
-        if(ItemNeedsUpdate $objPath $depsPaths) {
+        if(ItemNeedsUpdate $objPath $deps) {
             # Compile if object file is older than any of its dependencies
             $compileSources += $source
+            continue
+        }
+        if($Disasm) {
+            $asmPath = GetSrcAsmPath $source
+            if(ItemNeedsUpdate $asmPath $deps) {
+                $compileSources += $source
+            }
         }
     }
 }
@@ -376,26 +397,4 @@ if(-not $NoExe) {
     }
 
     Write-Host "Output file: $outFile" -ForegroundColor $infoColor
-}
-
-# Optional disassembly for debugging
-if($Disasm) {
-    try {
-        Get-Command "dumpbin" -ErrorAction Stop | Out-Null
-    } catch {
-        Write-Error "dumpbin.exe not found."
-        return
-    }
-    if(-not (Test-Path -Path $disasmDir)) {
-        mkdir $disasmDir | Out-Null
-    }
-    Write-Host "Disassembling generated object files" -ForegroundColor $infoColor
-    foreach($objectFile in $objectFiles) {
-        $baseName = (Get-Item $objectFile).BaseName
-        $dumpbinOptions = @(
-            "/OUT:$disasmDir/$baseName.asm",
-            "/DISASM"
-        )
-        dumpbin $dumpbinOptions $objectFile | Out-Null
-    }
 }
