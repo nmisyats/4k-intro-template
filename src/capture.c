@@ -153,13 +153,11 @@ void save_audio(const float* buffer, DWORD nbBytes) {
     char cmd[1024];
     wsprintf(cmd,
         "ffmpeg -y "
-        "-f f32le -ar %d -ac %d -i \"%s\" "
+        "-f f32le -ar %d -ac %d -i \".\\audio.raw\" "
         "-c:a libmp3lame -q:a 2 "
-        "\"%s\"",
+        "\".\\audio.mp3\"",
         SAMPLE_RATE,
-        NUM_CHANNELS,
-        ".\\audio.raw",
-        ".\\audio.mp3"
+        NUM_CHANNELS
     );
 
     BOOL ok = CreateProcess(
