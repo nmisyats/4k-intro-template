@@ -1,4 +1,6 @@
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <mmeapi.h>
 #include <mmreg.h> // defines WAVE_FORMAT_IEEE_FLOAT
 #include <GL/gl.h>
 #include "intro.h"
@@ -256,6 +258,7 @@ int WINAPI wWinMain(
     return 0;
 }
 
+// Window callback used only in debug mode
 LRESULT CALLBACK WindowProc(
     HWND hwnd, // the handle to the window that receives the message
     UINT uMsg, // the message code
