@@ -189,6 +189,9 @@ else { # Release
     $compileOptions += '/GS-' # No buffer security check
     $compileOptions += '/Gr' # Use __fastcall calling convention
 }
+if ($Tiny) {
+    $compileOptions += '/DTINY'
+}
 if($HasVideo) {
     $compileOptions += '/DVIDEO'
 }

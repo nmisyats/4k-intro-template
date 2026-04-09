@@ -56,6 +56,14 @@ MMTIME musicTime = {
     .u = {0}
 };
 
+
+#ifdef TINY
+    #define EXIT_MAIN(code) ExitProcess(code)
+#else
+    #define EXIT_MAIN(code) return code
+#endif
+
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 int WINAPI wWinMain(
@@ -165,13 +173,13 @@ int WINAPI wWinMain(
             #ifdef DEBUG
             MessageBox(NULL, "Failed to play sound (waveOutOpen).", "Error", MB_OK);
             #endif
-            return 1;
+            EXIT_MAIN(1);
         }
         if (waveOutWrite(waveHandle, &waveHeader, sizeof(waveHeader)) != MMSYSERR_NOERROR) {
             #ifdef DEBUG
             MessageBox(NULL, "Failed to play sound (waveOutWrite).", "Error", MB_OK);
             #endif
-            return 1;
+            EXIT_MAIN(1);
         }
         // Use music ending as finish condition
         #define INTRO_NOT_DONE (waveHeader.dwFlags & WHDR_DONE) == 0
@@ -254,8 +262,7 @@ int WINAPI wWinMain(
     ShowCursor(TRUE);
     #endif
 
-    ExitProcess(0);
-    return 0;
+    EXIT_MAIN(0);
 }
 
 // Window callback used only in debug mode
