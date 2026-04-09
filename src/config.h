@@ -1,6 +1,6 @@
 #pragma once
 
-#define INTRO_DURATION 5 // seconds
+#define INTRO_DURATION 10 // seconds
 
 #ifndef XRES
 #define XRES 640
