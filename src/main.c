@@ -2,6 +2,7 @@
 #include <windows.h>
 #include <mmeapi.h>
 #include <mmreg.h> // defines WAVE_FORMAT_IEEE_FLOAT
+#include <stdio.h>
 #include <GL/gl.h>
 #include "intro.h"
 #include "music.h"
@@ -234,22 +235,22 @@ int WINAPI wWinMain(
         #endif
 
         #ifdef VIDEO
+        #define NUM_FRAMES INTRO_DURATION*CAPTURE_FRAMERATE
+
         HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-        char consoleMsg[256];
-        DWORD nbWritten;
+        char msg[256];
 
         start_capture();
-        for(int i = 0; i < INTRO_DURATION*CAPTURE_FRAMERATE; i++) {
+        for(int i = 0; i < NUM_FRAMES; i++) {
             GLfloat time = ((GLfloat)i / (GLfloat)CAPTURE_FRAMERATE);
 
             intro_do(time);
             capture_frame();
 
             if(i % CAPTURE_FRAMERATE == 0) {
-                wsprintf(consoleMsg,
-                    "Recorded frames %d/%d\r\n",
-                    i, INTRO_DURATION*CAPTURE_FRAMERATE);
-                WriteConsole(hConsole, consoleMsg, lstrlen(consoleMsg), &nbWritten, NULL);
+                sprintf_s(msg, sizeof(msg), "Recorded frames %d/%d\r\n",
+                    i, NUM_FRAMES);
+                WriteConsole(hConsole, msg, strlen(msg), NULL, NULL);
             }
         }
         finish_capture();

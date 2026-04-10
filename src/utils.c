@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <malloc.h>
+#include <stdio.h>
 #include <GL/gl.h>
 #include "glext.h"
 #include "utils.h"
@@ -35,7 +36,7 @@ void error_exit(const char* file, int line) {
         ExitProcess(dw);
     }
 
-    wsprintf(msg, "At %s:%d:\n%s", file, line, (LPCSTR)lpMsgBuf);
+    sprintf_s(msg, sizeof(msg), "At %s:%d:\n%s", file, line, (LPCSTR)lpMsgBuf);
     MessageBox(NULL, msg, "Error", MB_OK);
 
     free(msg);
@@ -141,12 +142,13 @@ char* load_file(const char* path, PDWORD loadedSize) {
 }
 
 char* load_shader(const char* filename) {
-    char buf[1024];
-    wsprintf(buf, ".\\src\\shaders\\%s", filename);
-    char* source = load_file(buf, NULL);
+    char path[256];
+    sprintf_s(path, sizeof(path), ".\\src\\shaders\\%s", filename);
+    char* source = load_file(path, NULL);
     if(!source) {
-        wsprintf(buf, "Failed to load shader: %s", filename);
-        MessageBox(NULL, buf, "Error", MB_OK);
+        char msg[256];
+        sprintf_s(msg, sizeof(msg), "Failed to load shader: %s", filename);
+        MessageBox(NULL, msg, "Error", MB_OK);
         ExitProcess(1);
     }
     return source;

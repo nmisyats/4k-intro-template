@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <stdio.h>
 #include <GL/gl.h>
 #include "glext.h"
 #include "config.h"
@@ -45,7 +46,7 @@ void start_capture(void) {
 
     char cmd[1024];
     #ifdef SOUND
-    wsprintf(cmd,
+    sprintf_s(cmd, sizeof(cmd),
         "ffmpeg -y "
         "-f rawvideo -pix_fmt rgb24 -s %dx%d -r %d -i - "
         "-i \".\\audio.mp3\" "
@@ -57,7 +58,7 @@ void start_capture(void) {
         "\".\\capture.mp4\"",
         XRES, YRES, CAPTURE_FRAMERATE);
     #else
-    wsprintf(cmd,
+    sprintf_s(cmd, sizeof(cmd),
         "ffmpeg -y "
         "-f rawvideo -pix_fmt rgb24 -s %dx%d -r %d -i - "
         "-c:v libx264 -pix_fmt yuv420p "
@@ -152,7 +153,7 @@ void save_audio(const float* buffer, DWORD nbBytes) {
     PROCESS_INFORMATION pi = {0};
 
     char cmd[1024];
-    wsprintf(cmd,
+    sprintf_s(cmd, sizeof(cmd),
         "ffmpeg -y "
         "-f f32le -ar %d -ac %d -i \".\\audio.raw\" "
         "-c:a libmp3lame -q:a 2 "
