@@ -5,7 +5,6 @@
 #include "glext.h" // contains type definitions for all modern OpenGL functions
 #include "config.h"
 #include "utils.h"
-#include "music.h"
 
 // Define the modern OpenGL functions to load from the driver
 
