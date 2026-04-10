@@ -242,7 +242,7 @@ int WINAPI wWinMain(
 
         start_capture();
         for(int i = 0; i < NUM_FRAMES; i++) {
-            GLfloat time = ((GLfloat)i / (GLfloat)CAPTURE_FRAMERATE);
+            GLfloat time = (GLfloat)i / (GLfloat)CAPTURE_FRAMERATE;
 
             intro_do(time);
             capture_frame();
